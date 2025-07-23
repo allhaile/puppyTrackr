@@ -1,0 +1,51 @@
+{
+  "name": "PuppyTrackr",
+  "short_name": "PuppyTrackr",
+  "description": "Track your puppy's daily care activities and milestones",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192x192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icon-512x512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable any"
+    }
+  ],
+  "categories": ["lifestyle", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Add Log Entry",
+      "short_name": "Add Log",
+      "description": "Quickly add a new puppy care log entry",
+      "url": "/dashboard?action=add-log",
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "View Milestones",
+      "short_name": "Milestones",
+      "description": "View puppy growth milestones",
+      "url": "/milestones",
+      "icons": [
+        {
+          "src": "/icon-192x192.svg",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+} 

@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/puppytrackr
+      - JWT_SECRET=your-secret-change-this-in-production
+      - NEXTAUTH_SECRET=your-nextauth-secret-change-this-in-production
+      - NEXTAUTH_URL=http://localhost:3000
+    depends_on:
+      - db
+    volumes:
+      - ./prisma:/app/prisma
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=puppytrackr
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data: 
