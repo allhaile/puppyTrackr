@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    @apply bg-neutral-25 dark:bg-neutral-900 text-neutral-900 dark:text-white;
+  }
+  
+  * {
+    font-feature-settings: inherit;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-6 shadow-sm;
+  }
+  
+  .card-compact {
+    @apply bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg p-4 shadow-sm;
+  }
+  
+  .stat-card {
+    @apply bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow duration-200;
+  }
+  
+  .input-field {
+    @apply w-full px-4 py-3 border border-neutral-300 dark:border-neutral-600 rounded-lg 
+           focus:ring-2 focus:ring-primary-100 dark:focus:ring-primary-800 focus:border-primary-400 dark:focus:border-primary-500
+           bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-500 dark:placeholder-neutral-400
+           transition-colors duration-200;
+  }
+  
+  .btn-primary {
+    @apply bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-lg font-medium 
+           transition-colors duration-200 focus:ring-2 focus:ring-primary-100 dark:focus:ring-primary-800 focus:ring-offset-2;
+  }
+  
+  .btn-secondary {
+    @apply bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600 
+           text-neutral-700 dark:text-neutral-300 px-6 py-3 rounded-lg font-medium 
+           transition-colors duration-200 focus:ring-2 focus:ring-neutral-100 dark:focus:ring-neutral-600 focus:ring-offset-2;
+  }
+  
+  .btn-danger {
+    @apply bg-error-600 hover:bg-error-700 text-white px-6 py-3 rounded-lg font-medium 
+           transition-colors duration-200 focus:ring-2 focus:ring-error-100 dark:focus:ring-error-800 focus:ring-offset-2;
+  }
+  
+  .badge {
+    @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium;
+  }
+  
+  .badge-neutral {
+    @apply bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300;
+  }
+  
+  .badge-primary {
+    @apply bg-primary-50 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300;
+  }
+  
+  .badge-success {
+    @apply bg-success-50 dark:bg-success-900/50 text-success-700 dark:text-success-300;
+  }
+  
+  .badge-warning {
+    @apply bg-warning-50 dark:bg-warning-900/50 text-warning-700 dark:text-warning-300;
+  }
+  
+  .modal-overlay {
+    @apply fixed inset-0 bg-neutral-900/50 dark:bg-neutral-950/70 flex items-end sm:items-center justify-center z-50 p-4;
+  }
+  
+  .modal-content {
+    @apply bg-white dark:bg-neutral-800 rounded-t-2xl sm:rounded-2xl w-full max-w-sm border border-neutral-200 dark:border-neutral-700;
+  }
+} 
