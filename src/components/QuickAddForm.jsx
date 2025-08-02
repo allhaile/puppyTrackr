@@ -87,7 +87,7 @@ const QuickAddForm = ({ isOpen, onAdd, onClose, currentUser, users }) => {
 
   return (
     <div className={`modal-overlay ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'} transition-opacity duration-300`}>
-      <div className={`modal-content max-w-lg transform transition-transform duration-300 ${
+      <div className={`modal-content max-w-lg max-h-[90vh] overflow-y-auto transform transition-transform duration-300 ${
         isOpen ? 'translate-y-0' : 'translate-y-full'
       }`}>
         {/* Header */}

@@ -6,6 +6,14 @@ import LoadingScreen from './LoadingScreen'
 const AuthWrapper = ({ children }) => {
   const { user, loading } = useAuth()
 
+  // TEMPORARY: Bypass auth for debugging
+  // Remove this when Supabase is working
+  const BYPASS_AUTH = true
+  
+  if (BYPASS_AUTH) {
+    return children
+  }
+
   if (loading) {
     return <LoadingScreen />
   }

@@ -78,7 +78,7 @@ const Header = ({
               <Users className="w-4 h-4 text-primary-600 dark:text-primary-400" />
             </div>
             <span className="hidden sm:inline text-sm font-medium text-neutral-700 dark:text-neutral-300">
-              {household?.name || 'Household'}
+              {household?.name || localStorage.getItem('householdName') || 'Household'}
             </span>
             <ChevronDown className="w-4 h-4 text-neutral-500 dark:text-neutral-400" />
           </button>

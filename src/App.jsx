@@ -175,7 +175,7 @@ function App() {
             user={user}
             onUpdateHousehold={updateHousehold}
             onAddDog={() => handleOpenDogForm()}
-            onEditDog={handleOpenDogForm}
+            onEditDog={updateDog}
             onDeleteDog={deleteDog}
             onShowInvites={() => setShowHouseholdInvite(true)}
             onExportData={handleExportData}

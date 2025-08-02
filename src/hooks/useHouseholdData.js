@@ -10,41 +10,114 @@ export const useHouseholdData = () => {
   const [householdMembers, setHouseholdMembers] = useState([]);
   const [user, setUser] = useState(null);
 
+  // TEMPORARY: Bypass mode for debugging
+  const BYPASS_AUTH = true;
+
   // Load household data when user is authenticated
   useEffect(() => {
-    loadUserAndHousehold();
+    if (BYPASS_AUTH) {
+      loadMockData();
+    } else {
+      loadUserAndHousehold();
+    }
     
-    // Set up real-time subscription for entries
-    const entriesSubscription = supabase
-      .channel('puppy_entries_changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'puppy_entries' }, 
-        () => {
-          loadEntries();
-        }
-      )
-      .subscribe();
+    if (!BYPASS_AUTH) {
+      // Set up real-time subscription for entries
+      const entriesSubscription = supabase
+        .channel('puppy_entries_changes')
+        .on('postgres_changes', 
+          { event: '*', schema: 'public', table: 'puppy_entries' }, 
+          () => {
+            loadEntries();
+          }
+        )
+        .subscribe();
 
-    // Set up real-time subscription for dogs
-    const dogsSubscription = supabase
-      .channel('puppies_changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'puppies' }, 
-        () => {
-          loadDogs();
-        }
-      )
-      .subscribe();
+      // Set up real-time subscription for dogs
+      const dogsSubscription = supabase
+        .channel('puppies_changes')
+        .on('postgres_changes', 
+          { event: '*', schema: 'public', table: 'puppies' }, 
+          () => {
+            loadDogs();
+          }
+        )
+        .subscribe();
 
-    return () => {
-      entriesSubscription.unsubscribe();
-      dogsSubscription.unsubscribe();
-    };
+      return () => {
+        entriesSubscription.unsubscribe();
+        dogsSubscription.unsubscribe();
+      };
+    }
   }, []);
+
+  // Load entries from localStorage in bypass mode
+  const loadMockEntries = () => {
+    const storedEntries = JSON.parse(localStorage.getItem('entries') || '[]');
+    setEntries(storedEntries);
+  };
+
+  // Mock data for bypass mode
+  const loadMockData = () => {
+    const mockUser = {
+      id: 'mock-user-id',
+      email: 'demo@example.com'
+    };
+    
+    const mockHousehold = {
+      id: 'mock-household-id',
+      name: localStorage.getItem('householdName') || 'Demo Household',
+      invite_code: 'demo123',
+      created_by: 'mock-user-id',
+      created_at: new Date().toISOString()
+    };
+
+    // Use actual puppy name from localStorage, fallback to Demo Dog
+    const storedPuppyName = localStorage.getItem('puppyName') || 'Demo Dog';
+    const storedPuppyBreed = localStorage.getItem('puppyBreed') || 'Mixed Breed';
+    
+    const mockDog = {
+      id: 'mock-dog-id',
+      name: storedPuppyName,
+      breed: storedPuppyBreed,
+      birth_date: localStorage.getItem('puppyBirthday') || '2023-01-01',
+      weight_lbs: parseFloat(localStorage.getItem('puppyWeight')) || 25,
+      gender: localStorage.getItem('puppyGender') || '',
+      avatar_url: localStorage.getItem('puppyAvatar') || null,
+      household_id: 'mock-household-id',
+      created_by: 'mock-user-id',
+      created_at: new Date().toISOString()
+    };
+
+    // Use actual user display name from localStorage
+    const userDisplayName = localStorage.getItem('userDisplayName') || 'Demo User';
+
+    const mockMembers = [{
+      user_id: 'mock-user-id',
+      household_id: 'mock-household-id',
+      role: 'owner',
+      user_profiles: {
+        display_name: userDisplayName,
+        avatar_url: null
+      }
+    }];
+
+    setUser(mockUser);
+    setHousehold(mockHousehold);
+    setDogs([mockDog]);
+    setActiveDog(mockDog);
+    setHouseholdMembers(mockMembers);
+    
+    // Load entries from localStorage in bypass mode
+    const storedEntries = JSON.parse(localStorage.getItem('entries') || '[]');
+    setEntries(storedEntries);
+    
+    setLoading(false);
+  };
 
   // Load entries when active dog changes
   useEffect(() => {
-    if (activeDog) {
+    if (activeDog && !BYPASS_AUTH) {
       loadEntries();
     }
   }, [activeDog?.id]);
@@ -176,6 +249,26 @@ export const useHouseholdData = () => {
   const addDog = async (dogData) => {
     if (!household?.id) return { error: 'No household found' };
 
+    // Bypass mode - use mock data
+    if (BYPASS_AUTH) {
+      const mockDog = {
+        id: `mock-dog-${Date.now()}`,
+        ...dogData,
+        household_id: household.id,
+        created_by: user?.id,
+        created_at: new Date().toISOString()
+      };
+      
+      setDogs(prev => [...prev, mockDog]);
+      
+      // Set as active dog if it's the first one
+      if (dogs.length === 0) {
+        setActiveDog(mockDog);
+      }
+
+      return { data: mockDog, error: null };
+    }
+
     try {
       const { data, error } = await supabase
         .from('puppies')
@@ -255,6 +348,24 @@ export const useHouseholdData = () => {
 
   const addEntry = async (entryData) => {
     if (!activeDog?.id) return { error: 'No active dog selected' };
+
+    // Bypass mode - use mock data
+    if (BYPASS_AUTH) {
+      const mockEntry = {
+        id: `mock-entry-${Date.now()}`,
+        ...entryData,
+        puppy_id: activeDog.id,
+        user_id: user?.id,
+        created_at: new Date().toISOString(),
+        user_profiles: {
+          display_name: localStorage.getItem('userDisplayName') || 'Demo User',
+          avatar_url: null
+        }
+      };
+      
+      setEntries(prev => [mockEntry, ...prev]);
+      return { data: mockEntry, error: null };
+    }
 
     try {
       const { data, error } = await supabase
@@ -485,6 +596,6 @@ export const useHouseholdData = () => {
 
     // Helpers
     getInviteLink,
-    refreshData: loadUserAndHousehold
+    refreshData: BYPASS_AUTH ? loadMockData : loadUserAndHousehold
   };
 }; 
