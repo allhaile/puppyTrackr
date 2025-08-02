@@ -36,7 +36,7 @@ VITE_SUPABASE_URL=https://your-project-id.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key-here
 ```
 
-⚠️ **Important**: Replace the placeholder values with your actual Supabase credentials!
+**Important**: Replace the placeholder values with your actual Supabase credentials!
 
 ## 🗄️ Step 4: Set Up Database Schema
 
@@ -48,11 +48,55 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 
 You should see these tables:
 - `user_profiles`
+- `households`
+- `household_members`
 - `puppies`
 - `puppy_entries`
-- `puppy_access`
 
-## 📱 Step 5: Configure Phone Authentication
+## 📧 Step 5: Configure Email Authentication (IMPORTANT!)
+
+### Fix the Magic Link Issue
+
+By default, Supabase sends magic links instead of OTP codes. To fix this:
+
+1. Go to **Authentication** → **Settings**
+2. Scroll down to **"Auth Providers"** section
+3. Find **"Enable email confirmations"**
+4. **UNCHECK** the following options:
+   - ✅ **Enable email confirmations** (keep this checked)
+   - ❌ **Secure email change** (uncheck this)
+   - ❌ **Enable email change confirmations** (uncheck this)
+
+5. Scroll down to **"Email Templates"**
+6. Click **"Confirm signup"**
+7. **Replace the template** with this OTP-only version:
+
+```html
+<h2>Your verification code</h2>
+<p>Your 6-digit verification code is: <strong>{{ .Token }}</strong></p>
+<p>This code will expire in 60 minutes.</p>
+<p>If you didn't request this, please ignore this email.</p>
+```
+
+8. **Disable the confirmation URL** by removing this line if it exists:
+   ```html
+   <p><a href="{{ .ConfirmationURL }}">Confirm your account</a></p>
+   ```
+
+9. Click **"Save"**
+
+### Alternative: Configure OTP-Only Mode
+
+If the above doesn't work, try this approach:
+
+1. Go to **Authentication** → **Settings** 
+2. Scroll to **"Auth Providers"**
+3. Click **"Email"**
+4. **Enable**: "Email OTP"
+5. **Disable**: "Magic Link" (if the option exists)
+6. Save changes
+
+## 📱 Step 6: Configure Phone Authentication
 
 ### Enable Phone Auth Provider
 1. Go to **Authentication** → **Providers**
@@ -60,7 +104,6 @@ You should see these tables:
 3. Enable "Phone login"
 4. **Choose SMS Provider**: 
    - **For Development**: Use "Supabase" (free tier includes limited SMS)
-   - **For Production**: Set up Twilio, MessageBird, or Vonage
 
 ### For Twilio Setup (Recommended for Production):
 1. Sign up at [twilio.com](https://twilio.com)
@@ -77,28 +120,7 @@ You should see these tables:
 - **SMS OTP expiry**: 60 seconds (default)
 - **SMS template**: Customize your OTP message
 
-## 📧 Step 6: Configure Email Authentication (Backup)
-
-1. Go to **Authentication** → **Providers**
-2. **Email** should already be enabled
-3. Optionally configure **SMTP settings** for custom emails:
-   - Go to **Authentication** → **Settings**
-   - Scroll to "SMTP Settings"
-   - Configure your email provider (Gmail, SendGrid, etc.)
-
-## 🔄 Step 7: Switch to Supabase Data Layer
-
-In `src/App.jsx`, replace the localStorage hook with Supabase:
-
-```javascript
-// BEFORE:
-const { ... } = usePuppyData();
-
-// AFTER:
-const { ... } = useSupabaseData();
-```
-
-## 🚀 Step 8: Test the Migration
+## 🔄 Step 7: Test the Authentication
 
 1. Start your dev server:
    ```bash
@@ -106,16 +128,19 @@ const { ... } = useSupabaseData();
    ```
 
 2. **You should see the login screen** instead of the main app
-3. **Test phone login**:
+
+3. **Test email login**:
+   - Switch to email tab
+   - Enter your email
+   - **You should now receive a 6-digit code** instead of a magic link
+   - Enter the code to log in
+
+4. **Test phone login** (if configured):
    - Enter your phone number with country code (+1 for US)
    - You should receive an SMS with a 6-digit code
    - Enter the code to log in
-4. **Test email login**:
-   - Switch to email tab
-   - Enter your email
-   - Check your email for the verification code
 
-## ✨ Step 9: Avatar Storage (Optional)
+## ✨ Step 8: Avatar Storage (Optional)
 
 To enable avatar uploads:
 
@@ -126,104 +151,56 @@ To enable avatar uploads:
 5. Click "Create bucket"
 6. The storage policies are already included in the schema
 
-## 🔄 Step 10: Data Migration Strategy
+## 🔄 Step 9: Data Migration Strategy
 
 ### For Existing Users:
-If you have existing localStorage data (including imported Notion data), it will automatically migrate when you switch to Supabase! The migration utility is already built-in:
 
-```javascript
-// Add this to a migration component or utility
-const migrateLocalStorageData = async () => {
-  const oldData = {
-    puppyName: localStorage.getItem('puppyName'),
-    entries: JSON.parse(localStorage.getItem('entries') || '[]'),
-    // ... other data
-  };
-  
-  // Upload to Supabase using your new hooks
-  // Then clear localStorage
-  localStorage.clear();
-};
-```
+If you have existing localStorage data, you can:
 
-## 🎯 What's Changed
+1. **Export from the old app** using the export feature
+2. **Manually re-enter** critical data like dog profiles
+3. **Import historical entries** using the CSV import feature (if available)
 
-### ✅ New Features:
-- **Real user authentication** with phone/email
-- **Multi-device sync** - data follows you everywhere
-- **Family sharing** - multiple people can track the same puppy
-- **User profiles** with avatars
-- **Secure data** with Row Level Security
-- **Offline capability** with automatic sync
+### New Users:
 
-### 🔄 Differences from localStorage version:
-- **Login required** - users must authenticate
-- **Entries show real user names** instead of string-based users
-- **Profile management** in settings
-- **Cloud backup** - no more data loss
+1. **Sign up** creates automatic household
+2. **Add your first dog** using the dog selector
+3. **Invite family members** using household invite links
 
-## 🎨 Avatar System
+## 🚨 Troubleshooting
 
-The new system supports:
-- **Phone verification codes** via SMS
-- **Email verification codes** 
-- **User profiles** with display names
-- **Avatar uploads** to Supabase Storage
-- **Family member management**
+### Still Getting Magic Links?
 
-## 🔧 Troubleshooting
+If you're still receiving magic links instead of OTP codes:
 
-### Common Issues:
+1. **Clear your browser cache** and try again
+2. **Check Supabase logs**: Go to **Authentication** → **Logs** to see what's happening
+3. **Try incognito mode** to test with fresh browser state
+4. **Contact support**: Supabase Discord or GitHub issues
 
-1. **"Failed to fetch"**: Check your environment variables
-2. **SMS not received**: Verify phone number format (+1XXXXXXXXXX)
-3. **Tables not found**: Run the schema SQL again
-4. **Authentication loop**: Clear browser storage and restart
+### Magic Link Not Working?
 
-### Development vs Production:
+If you want to use the magic link you received:
 
-- **Development**: Use Supabase's free SMS limit
-- **Production**: Set up Twilio for reliable SMS delivery
+1. **Copy the entire URL** from your email
+2. **Paste it in your browser address bar**
+3. It should automatically log you in
 
-## 📝 Importing Your Lil Nugget Daily Log
+### Phone Auth Not Working?
 
-**Ready to import your 320+ Lil Nugget activities?** 
-- 🎯 **Import now** (before Supabase) - **RECOMMENDED**
-- 📱 Or import after Supabase setup  
-- 🔥 **Your data is already perfectly formatted!**
+1. **Check SMS provider setup** in Supabase dashboard
+2. **Verify phone number format**: Must include country code (e.g., +15551234567)
+3. **Check Supabase usage limits** - free tier has limited SMS
 
-**Files ready for you:**
-- `Cleaned_Puppy_Log.csv` - Your cleaned data (362 entries!) ⭐
-- `cleaned-data-sample.csv` - Test with 5 sample entries first
-- `NOTION_IMPORT_GUIDE.md` - Step-by-step instructions
+## 🎯 Ready to Go!
 
-**Your cleaned data breakdown:**
-- ✅ **222 Potty** activities (with Pee/Poop specifics)
-- ✅ **67 Meal** records  
-- ✅ **53 Training** sessions
-- ✅ **13 Note** observations
-- ✅ **7 Sleep** activities
-- ✅ **All activity types validated** - perfect schema match!
-- ✅ **Users:** Haile (195), Adryan (129), Both (36)
+Once authentication is working:
 
-## 🌟 Next Steps
-
-After successful migration, you can:
-
-1. **Add avatar upload UI** to user settings
-2. **Implement family sharing** features
-3. **Add push notifications** for shared puppies
-4. **Create puppy profiles** with photos and details
-5. **Add real-time collaboration** features
-
-## 📞 Support
-
-If you run into issues:
-1. Check the browser console for errors
-2. Verify Supabase credentials
-3. Test authentication in Supabase dashboard
-4. Check network requests in browser dev tools
+1. **Create your household** (automatic on first login)
+2. **Add your first dog** using the header dog selector  
+3. **Share household invite link** with family members
+4. **Start tracking** your dogs' activities together!
 
 ---
 
-**🎉 Congratulations!** You've successfully migrated to a professional, multi-user, cloud-backed puppy tracking system! 
+**Need help?** Check the troubleshooting section above or open an issue on GitHub. 

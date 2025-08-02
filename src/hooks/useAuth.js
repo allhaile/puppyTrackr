@@ -43,6 +43,17 @@ export const useAuth = () => {
     return { data, error }
   }
 
+  // Alternative email signin that forces magic link (for testing)
+  const signInWithMagicLink = async (email) => {
+    const { data, error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`
+      }
+    })
+    return { data, error }
+  }
+
   const verifyOtp = async (phone, token, type = 'sms') => {
     const { data, error } = await supabase.auth.verifyOtp({
       phone,
@@ -72,6 +83,7 @@ export const useAuth = () => {
     loading,
     signInWithPhone,
     signInWithEmail,
+    signInWithMagicLink,
     verifyOtp,
     verifyEmailOtp,
     signOut
