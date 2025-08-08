@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext } from 'react'
+import { useSupabaseAuth } from '../hooks/useSupabaseAuth'
+import { useHousehold } from '../hooks/useHousehold'
 
 const AuthContext = createContext()
 
@@ -9,67 +11,56 @@ export const useAuth = () => {
 }
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem('user')
-    return stored ? JSON.parse(stored) : null
-  })
-
-  const [caregivers, setCaregivers] = useState(() => {
-    const stored = localStorage.getItem('caregivers')
-    return stored ? JSON.parse(stored) : []
-  })
-
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('user', JSON.stringify(user))
-    } else {
-      localStorage.removeItem('user')
-    }
-  }, [user])
-
-  useEffect(() => {
-    localStorage.setItem('caregivers', JSON.stringify(caregivers))
-  }, [caregivers])
-
-  const login = (userData) => {
-    setUser(userData)
-  }
-
-  const logout = () => {
-    setUser(null)
-    localStorage.clear()
-  }
-
-  const addCaregiver = (caregiver) => {
-    const newCaregiver = {
-      ...caregiver,
-      id: Date.now().toString(),
-      role: caregiver.role || 'viewer',
-      addedAt: new Date().toISOString(),
-    }
-    setCaregivers(prev => [...prev, newCaregiver])
-    return newCaregiver
-  }
-
-  const removeCaregiver = (caregiverId) => {
-    setCaregivers(prev => prev.filter(c => c.id !== caregiverId))
-  }
-
-  const updateCaregiver = (caregiverId, updates) => {
-    setCaregivers(prev => 
-      prev.map(c => c.id === caregiverId ? { ...c, ...updates } : c)
-    )
-  }
+  const auth = useSupabaseAuth()
+  const household = useHousehold(auth.user)
 
   const value = {
-    user,
-    caregivers,
-    isAuthenticated: !!user,
-    login,
-    logout,
-    addCaregiver,
-    removeCaregiver,
-    updateCaregiver,
+    // Auth properties
+    user: auth.user,
+    profile: auth.profile,
+    isAuthenticated: auth.isAuthenticated,
+    loading: auth.loading || household.loading,
+    error: auth.error || household.error,
+    
+    // Auth methods
+    signInWithEmail: auth.signInWithEmail,
+    signInWithPhone: auth.signInWithPhone,
+    verifyOtp: auth.verifyOtp,
+    signOut: auth.signOut,
+    updateProfile: auth.updateProfile,
+    
+    // Household data (for backward compatibility)
+    household: household.household,
+    members: household.members,
+    caregivers: household.members, // Alias for backward compatibility
+    dogs: household.dogs,
+    activeDog: household.activeDog,
+    activeDogId: household.activeDogId,
+    setActiveDogId: household.setActiveDogId,
+    
+    // Dog management methods
+    addDog: household.addDog,
+    updateDog: household.updateDog,
+    deleteDog: household.deleteDog,
+    
+    // Household methods
+    generateNewInviteCode: household.generateNewInviteCode,
+    removeMember: household.removeMember,
+    updateHouseholdName: household.updateHouseholdName,
+    
+    // Legacy methods for backward compatibility
+    addCaregiver: (caregiver) => {
+      console.warn('addCaregiver is deprecated, use household invite system instead')
+      return { id: Date.now().toString(), ...caregiver }
+    },
+    removeCaregiver: household.removeMember,
+    updateCaregiver: (id, updates) => {
+      console.warn('updateCaregiver is deprecated')
+    },
+    login: (userData) => {
+      console.warn('login is deprecated, use signInWithEmail or signInWithPhone instead')
+    },
+    logout: auth.signOut
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

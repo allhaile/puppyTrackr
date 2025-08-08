@@ -6,7 +6,7 @@
 - **Complete data model redesign** from individual puppy tracking to household-centric multi-dog management
 - **Household creation** - Automatic household setup when users sign up
 - **Dog switching interface** - Seamless toggle between multiple dogs in the header
-- **Enhanced dog profiles** - Include breed, birth date, weight, microchip ID, and vet information
+- **Enhanced dog profiles** - Include breed, birth date, weight,treats they like
 
 ### 🔗 **Magic Link Invites**
 - **Shareable invite links** - Generate unique household invite codes (e.g., `/join/abc123`)
@@ -16,7 +16,6 @@
 
 ### 👨‍👩‍👧‍👦 **Family Collaboration**
 - **Real user attribution** - Each activity shows who logged it with their actual name
-- **Real-time sync** - All household members see updates immediately
 - **User profiles** - Each family member has their own profile and identity
 - **Cross-device access** - Same household data accessible from any family member's device
 
@@ -73,5 +72,4 @@ This version represents a complete rewrite of the data architecture to support m
 - 🏠 Families with multiple dogs
 - 👨‍👩‍👧‍👦 Multi-generational households  
 - 🐕‍🦺 Professional dog sitters
-- 🏥 Veterinary record keeping
 - 📊 Behavioral tracking across multiple pets 

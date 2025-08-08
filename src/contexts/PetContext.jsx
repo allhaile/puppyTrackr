@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
-import { useActivityStore } from '../stores/activityStore'
-import { usePetStore } from '../stores/petStore'
+import React, { createContext, useContext } from 'react'
+import { useAuth } from './AuthContext'
+import { useActivities } from '../hooks/useActivities'
 
 const PetContext = createContext()
 
@@ -11,55 +11,44 @@ export const usePets = () => {
 }
 
 export const PetProvider = ({ children }) => {
-  const petStore = usePetStore()
-  const activityStore = useActivityStore()
+  const { user, dogs, activeDog, activeDogId, setActiveDogId, addDog, updateDog, deleteDog } = useAuth()
   
-  const pets = petStore?.pets || []
-  const activePetId = petStore?.activePetId || null
-  const activities = activityStore?.activities || []
-  
-  const activePet = pets.find(p => p.id === activePetId)
+  const activitiesHook = useActivities(activeDogId, user)
 
-  // Get activities for active pet
-  const petActivities = activities.filter(a => a.petId === activePetId)
-
-  // Get today's activities
-  const todayActivities = petActivities.filter(activity => {
-    const activityDate = new Date(activity.timestamp)
-    const today = new Date()
-    return activityDate.toDateString() === today.toDateString()
-  })
-
-  // Calculate stats
-  const stats = {
-    meals: todayActivities.filter(a => a.type === 'meal').length,
-    potty: todayActivities.filter(a => a.type === 'potty').length,
-    walks: todayActivities.filter(a => a.type === 'walk').length,
-    medications: todayActivities.filter(a => a.type === 'medication').length,
-  }
-
-  // Get last activity times
-  const getLastActivityTime = (type) => {
-    const filtered = petActivities.filter(a => a.type === type)
-    if (filtered.length === 0) return null
-    return new Date(Math.max(...filtered.map(a => new Date(a.timestamp))))
-  }
+  // Get pet data from auth context
+  const pets = dogs || []
+  const activePet = activeDog
 
   const value = {
+    // Pet data
     pets,
     activePet,
-    activePetId,
-    setActivePet: petStore?.setActivePet || (() => {}),
-    addPet: petStore?.addPet || (() => {}),
-    updatePet: petStore?.updatePet || (() => {}),
-    deletePet: petStore?.deletePet || (() => {}),
-    activities: petActivities,
-    todayActivities,
-    stats,
-    addActivity: activityStore?.addActivity || (() => {}),
-    updateActivity: activityStore?.updateActivity || (() => {}),
-    deleteActivity: activityStore?.deleteActivity || (() => {}),
-    getLastActivityTime,
+    activePetId: activeDogId,
+    
+    // Pet management (delegated to auth context/household)
+    setActivePet: setActiveDogId,
+    addPet: addDog,
+    updatePet: updateDog,
+    deletePet: deleteDog,
+    
+    // Activity data
+    activities: activitiesHook.activities,
+    todayActivities: activitiesHook.getTodayActivities(),
+    stats: activitiesHook.getStats(),
+    
+    // Activity management
+    addActivity: activitiesHook.addActivity,
+    updateActivity: activitiesHook.updateActivity,
+    deleteActivity: activitiesHook.deleteActivity,
+    getLastActivityTime: activitiesHook.getLastActivityTime,
+    
+    // Loading states
+    loading: activitiesHook.loading,
+    error: activitiesHook.error,
+    
+    // Backward compatibility
+    getActivitiesByType: activitiesHook.getActivitiesByType,
+    getRecentActivities: (limit = 10) => activitiesHook.activities.slice(0, limit)
   }
 
   return <PetContext.Provider value={value}>{children}</PetContext.Provider>
