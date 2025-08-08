@@ -8,6 +8,40 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Custom color variables for theming
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
+        },
+        primary: {
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
+        },
+        secondary: {
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))',
+        },
+        accent: {
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
+        },
+        muted: {
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
+        },
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
         // Muted neutral palette
         neutral: {
           25: '#FCFCFD',
@@ -22,21 +56,6 @@ export default {
           800: '#1D2939',
           900: '#101828',
           950: '#0C111D',
-        },
-        // Brand color - burgundy/brown
-        primary: {
-          25: '#FEFCFC',
-          50: '#FDF8F8',
-          100: '#F9EEEE',
-          200: '#F2DCDC',
-          300: '#E7BFBF',
-          400: '#D49A9A',
-          500: '#B86B6B',
-          600: '#5c2a33',
-          700: '#4A2329',
-          800: '#3D1C21',
-          900: '#34171C',
-          950: '#1F0E11',
         },
         // Status colors
         success: {
@@ -91,6 +110,11 @@ export default {
           800: '#851F88',
           900: '#6E1B70',
         },
+      },
+      borderRadius: {
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
