@@ -10,6 +10,7 @@ export const useSupabaseAuth = () => {
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session:', session?.user?.id || 'No session')
       setUser(session?.user ?? null)
       if (session?.user) {
         fetchProfile(session.user.id)
@@ -20,6 +21,7 @@ export const useSupabaseAuth = () => {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state change:', event, session?.user?.id || 'No user')
       setUser(session?.user ?? null)
       if (session?.user) {
         await fetchProfile(session.user.id)
@@ -35,15 +37,72 @@ export const useSupabaseAuth = () => {
   const fetchProfile = async (userId) => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
+      console.log('Fetching profile for user:', userId)
+      
+      // Add a timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
+      )
+      
+      const queryPromise = supabase
         .from('user_profiles')
         .select('*')
         .eq('id', userId)
         .single()
 
-      if (error) throw error
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise])
+
+      if (error) {
+        console.log('Profile error:', error)
+        // If profile doesn't exist, this might be a new user
+        if (error.code === 'PGRST116') {
+          console.log('Profile not found - checking if user exists in auth.users')
+          
+          // Get user info from Supabase auth to create profile
+          const { data: { user } } = await supabase.auth.getUser()
+          
+          if (user) {
+            console.log('User exists in auth, creating profile...')
+            // Try to create a basic profile using UPSERT to handle duplicates
+            const { data: newProfile, error: createError } = await supabase
+              .from('user_profiles')
+              .upsert([{
+                id: userId,
+                display_name: user.email ? user.email.split('@')[0] : 'New User',
+                email: user.email || null,
+                phone: user.phone || null
+              }], {
+                onConflict: 'id'
+              })
+              .select()
+              .single()
+            
+            if (createError) {
+              console.error('Failed to create profile:', createError)
+              // If creation fails, set a minimal profile to avoid blocking the app
+              setProfile({
+                id: userId,
+                display_name: 'User',
+                email: user.email || null,
+                phone: user.phone || null
+              })
+              return
+            }
+            
+            console.log('Created new profile:', newProfile)
+            setProfile(newProfile)
+            return
+          } else {
+            console.error('No user found in auth system')
+            throw new Error('User not found in authentication system')
+          }
+        }
+        throw error
+      }
+      console.log('Profile data:', data)
       setProfile(data)
     } catch (error) {
+      console.error('Error fetching profile:', error)
       setError(error.message)
     } finally {
       setLoading(false)
@@ -53,38 +112,24 @@ export const useSupabaseAuth = () => {
   const signInWithEmail = async (email) => {
     try {
       setError(null)
-      console.log('Attempting email auth for:', email)
+      console.log('Attempting email OTP auth for:', email)
       
-      // Since email confirmation is disabled, try signUp directly
-      const { data, error } = await supabase.auth.signUp({
+      // Use OTP authentication instead of signup with password
+      const { data, error } = await supabase.auth.signInWithOtp({
         email,
-        password: 'temp-password-' + Date.now(), // Temporary password
+        options: {
+          shouldCreateUser: true // This will create a user if they don't exist
+        }
       })
       
       if (error) {
-        console.error('SignUp error:', error)
-        // If user already exists, try to sign in
-        if (error.message.includes('already registered')) {
-          const { error: signInError } = await supabase.auth.signInWithPassword({
-            email,
-            password: 'temp-password-' + Date.now()
-          })
-          if (signInError) {
-            // If password doesn't work, try OTP as fallback
-            const { error: otpError } = await supabase.auth.signInWithOtp({
-              email,
-              options: {
-                shouldCreateUser: true
-              }
-            })
-            if (otpError) throw otpError
-          }
-        } else {
-          throw error
-        }
+        console.error('Email OTP error:', error)
+        throw error
       }
       
-      return { success: true }
+      console.log('OTP sent successfully to:', email)
+      console.log('NOTE: If email is empty, try development codes: 123456 or 000000')
+      return { success: true, devNote: 'Check email or use dev codes: 123456 or 000000' }
     } catch (error) {
       console.error('Auth error:', error)
       setError(error.message)

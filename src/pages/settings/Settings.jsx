@@ -105,7 +105,7 @@ const Settings = () => {
 
               <div>
                 <label className="block text-sm font-medium mb-2">Email</label>
-                <p className="text-muted-foreground">{user?.email}</p>
+                <p className="text-muted-foreground break-all">{user?.email}</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Email cannot be changed for security reasons
                 </p>
@@ -117,16 +117,16 @@ const Settings = () => {
               </div>
 
               {isEditing && (
-                <div className="flex space-x-3 pt-4">
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 pt-4">
                   <button
                     onClick={handleProfileUpdate}
-                    className="btn-primary"
+                    className="btn-primary w-full sm:w-auto"
                   >
                     Save Changes
                   </button>
                   <button
                     onClick={() => setIsEditing(false)}
-                    className="btn-ghost"
+                    className="btn-ghost w-full sm:w-auto"
                   >
                     Cancel
                   </button>
@@ -176,14 +176,14 @@ const Settings = () => {
 
               <div>
                 <label className="block text-sm font-medium mb-2">Invite Code</label>
-                <div className="flex items-center space-x-3">
-                  <code className="bg-muted px-3 py-2 rounded text-sm font-mono">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+                  <code className="bg-muted px-3 py-2 rounded text-sm font-mono break-all">
                     {household?.invite_code}
                   </code>
                   {household?.userRole === 'owner' && (
                     <button
                       onClick={handleGenerateInvite}
-                      className="btn-outline text-sm"
+                      className="btn-outline text-sm w-full sm:w-auto"
                     >
                       Regenerate
                     </button>
@@ -193,39 +193,41 @@ const Settings = () => {
 
               <div>
                 <label className="block text-sm font-medium mb-2">Invite Link</label>
-                <div className="flex items-center space-x-3">
+                <div className="flex flex-col space-y-2">
                   <input
                     type="text"
                     value={inviteUrl}
                     readOnly
-                    className="input flex-1 font-mono text-sm"
+                    className="input w-full font-mono text-sm"
                   />
-                  <button
-                    onClick={copyInviteLink}
-                    className="btn-outline text-sm"
-                  >
-                    Copy
-                  </button>
-                  <button
-                    onClick={() => setShowInviteModal(true)}
-                    className="btn-primary text-sm"
-                  >
-                    Share
-                  </button>
+                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+                    <button
+                      onClick={copyInviteLink}
+                      className="btn-outline text-sm w-full sm:w-auto"
+                    >
+                      Copy
+                    </button>
+                    <button
+                      onClick={() => setShowInviteModal(true)}
+                      className="btn-primary text-sm w-full sm:w-auto"
+                    >
+                      Share
+                    </button>
+                  </div>
                 </div>
               </div>
 
               {isEditing && (
-                <div className="flex space-x-3 pt-4">
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 pt-4">
                   <button
                     onClick={handleHouseholdUpdate}
-                    className="btn-primary"
+                    className="btn-primary w-full sm:w-auto"
                   >
                     Save Changes
                   </button>
                   <button
                     onClick={() => setIsEditing(false)}
-                    className="btn-ghost"
+                    className="btn-ghost w-full sm:w-auto"
                   >
                     Cancel
                   </button>
@@ -238,11 +240,11 @@ const Settings = () => {
       case 'members':
         return (
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
               <h2 className="text-xl font-semibold">Household Members</h2>
               <button
                 onClick={() => setShowInviteModal(true)}
-                className="btn-primary text-sm"
+                className="btn-primary text-sm w-full sm:w-auto"
               >
                 Invite Member
               </button>
@@ -252,10 +254,10 @@ const Settings = () => {
               {members.map((member) => (
                 <div
                   key={member.id}
-                  className="flex items-center justify-between p-4 bg-muted/30 rounded-lg"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-muted/30 rounded-lg space-y-3 sm:space-y-0"
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center">
+                    <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center flex-shrink-0">
                       {member.avatar_url ? (
                         <img
                           src={member.avatar_url}
@@ -266,8 +268,8 @@ const Settings = () => {
                         <Icon name="user" size={20} />
                       )}
                     </div>
-                    <div>
-                      <h3 className="font-medium">{member.display_name}</h3>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-medium truncate">{member.display_name}</h3>
                       <p className="text-sm text-muted-foreground capitalize">
                         {member.role}
                       </p>
@@ -277,7 +279,7 @@ const Settings = () => {
                   {household?.userRole === 'owner' && member.id !== user?.id && (
                     <button
                       onClick={() => handleRemoveMember(member.id)}
-                      className="text-red-500 hover:text-red-700 text-sm"
+                      className="text-red-500 hover:text-red-700 text-sm w-full sm:w-auto text-center sm:text-right"
                     >
                       Remove
                     </button>
@@ -291,9 +293,9 @@ const Settings = () => {
       case 'dogs':
         return (
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
               <h2 className="text-xl font-semibold">Dogs</h2>
-              <button className="btn-primary text-sm">
+              <button className="btn-primary text-sm w-full sm:w-auto">
                 Add Dog
               </button>
             </div>
@@ -302,10 +304,10 @@ const Settings = () => {
               {dogs?.map((dog) => (
                 <div
                   key={dog.id}
-                  className="flex items-center justify-between p-4 bg-muted/30 rounded-lg"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 bg-muted/30 rounded-lg space-y-3 sm:space-y-0"
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center">
+                    <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center flex-shrink-0">
                       {dog.avatar_url ? (
                         <img
                           src={dog.avatar_url}
@@ -316,8 +318,8 @@ const Settings = () => {
                         <Icon name="dog" size={24} />
                       )}
                     </div>
-                    <div>
-                      <h3 className="font-medium">{dog.name}</h3>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-medium truncate">{dog.name}</h3>
                       <p className="text-sm text-muted-foreground">
                         {dog.breed || 'Mixed breed'}
                         {dog.birth_date && ` • ${calculateAge(dog.birth_date)}`}
@@ -325,9 +327,9 @@ const Settings = () => {
                     </div>
                   </div>
                   
-                  <div className="flex items-center space-x-2">
-                    <button className="btn-outline text-sm">Edit</button>
-                    <button className="text-red-500 hover:text-red-700 text-sm">
+                  <div className="flex items-center space-x-2 w-full sm:w-auto">
+                    <button className="btn-outline text-sm flex-1 sm:flex-none">Edit</button>
+                    <button className="text-red-500 hover:text-red-700 text-sm flex-1 sm:flex-none text-center">
                       Remove
                     </button>
                   </div>
@@ -344,25 +346,25 @@ const Settings = () => {
             
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="flex-1 pr-4">
                   <h3 className="font-medium">Dark Mode</h3>
                   <p className="text-sm text-muted-foreground">
                     Use dark theme throughout the app
                   </p>
                 </div>
-                <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+                <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 flex-shrink-0">
                   <span className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform translate-x-6" />
                 </button>
               </div>
 
               <div className="flex items-center justify-between">
-                <div>
+                <div className="flex-1 pr-4">
                   <h3 className="font-medium">Push Notifications</h3>
                   <p className="text-sm text-muted-foreground">
                     Get notified about important updates
                   </p>
                 </div>
-                <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+                <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 flex-shrink-0">
                   <span className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform translate-x-6" />
                 </button>
               </div>
@@ -400,18 +402,41 @@ const Settings = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="container mx-auto px-4 py-4 sm:py-6 max-w-6xl">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="max-w-4xl mx-auto"
+        className="w-full"
       >
-        <h1 className="text-2xl font-bold mb-8">Settings</h1>
+        <h1 className="text-2xl font-bold mb-6 sm:mb-8">Settings</h1>
         
-        <div className="flex space-x-8">
-          {/* Sidebar */}
-          <div className="w-64 flex-shrink-0">
-            <nav className="space-y-2">
+        {/* Mobile Tab Navigation */}
+        <div className="block lg:hidden mb-6">
+          <div className="flex overflow-x-auto scrollbar-hide">
+            <div className="flex space-x-1 p-1 bg-muted rounded-lg min-w-full">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+                    activeTab === tab.id
+                      ? 'bg-background text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Icon name={tab.icon} size={16} />
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        
+        {/* Desktop and Tablet Layout */}
+        <div className="flex flex-col lg:flex-row lg:space-x-8">
+          {/* Desktop Sidebar */}
+          <div className="hidden lg:block w-64 flex-shrink-0">
+            <nav className="space-y-2 sticky top-4">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
@@ -430,7 +455,7 @@ const Settings = () => {
           </div>
 
           {/* Content */}
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <div className="glass-card">
               <TabContent />
             </div>
@@ -440,29 +465,29 @@ const Settings = () => {
 
       {/* Invite Modal */}
       {showInviteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-background p-6 rounded-lg max-w-md w-full mx-4"
+            className="bg-background p-4 sm:p-6 rounded-lg max-w-md w-full"
           >
             <h3 className="text-lg font-semibold mb-4">Invite Family Member</h3>
             
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Share this link:</label>
-                <div className="flex items-center space-x-2">
+                <div className="flex flex-col space-y-2">
                   <input
                     type="text"
                     value={inviteUrl}
                     readOnly
-                    className="input flex-1 font-mono text-sm"
+                    className="input w-full font-mono text-sm"
                   />
                   <button
                     onClick={copyInviteLink}
-                    className="btn-outline text-sm"
+                    className="btn-outline text-sm w-full"
                   >
-                    Copy
+                    Copy Link
                   </button>
                 </div>
               </div>
@@ -478,10 +503,10 @@ const Settings = () => {
               </div>
             </div>
 
-            <div className="flex space-x-3 mt-6">
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 mt-6">
               <button
                 onClick={() => setShowInviteModal(false)}
-                className="flex-1 btn-ghost"
+                className="btn-ghost w-full"
               >
                 Close
               </button>
@@ -497,7 +522,7 @@ const Settings = () => {
                     copyInviteLink()
                   }
                 }}
-                className="flex-1 btn-primary"
+                className="btn-primary w-full"
               >
                 Share
               </button>

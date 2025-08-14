@@ -27,14 +27,6 @@ function App() {
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission()
     }
-
-    // Add app height fix for mobile browsers
-    const setAppHeight = () => {
-      document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`)
-    }
-    setAppHeight()
-    window.addEventListener('resize', setAppHeight)
-    return () => window.removeEventListener('resize', setAppHeight)
   }, [])
 
   return (

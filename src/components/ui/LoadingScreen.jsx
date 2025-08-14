@@ -1,7 +1,7 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 
-const LoadingScreen = () => {
+const LoadingScreen = ({ message = "Loading your pet's world..." }) => {
   return (
     <div className="fixed inset-0 bg-background flex items-center justify-center z-50">
       <div className="text-center">
@@ -25,7 +25,7 @@ const LoadingScreen = () => {
           transition={{ delay: 0.5 }}
           className="text-muted-foreground"
         >
-          Loading your pet's world...
+          {message}
         </motion.p>
       </div>
     </div>

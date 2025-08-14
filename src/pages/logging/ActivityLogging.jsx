@@ -26,7 +26,7 @@ const ActivityLogging = () => {
     { type: 'potty', label: 'Potty', icon: 'potty', color: 'from-blue-400 to-blue-600' },
     { type: 'sleep', label: 'Sleep', icon: 'sleep', color: 'from-purple-400 to-purple-600' },
     { type: 'play', label: 'Play', icon: 'play', color: 'from-pink-400 to-pink-600' },
-    { type: 'groom', label: 'Grooming', icon: 'groom', color: 'from-teal-400 to-teal-600' },
+    { type: 'grooming', label: 'Grooming', icon: 'groom', color: 'from-teal-400 to-teal-600' },
     { type: 'vet', label: 'Vet Visit', icon: 'vet', color: 'from-red-400 to-red-600' },
     { type: 'medication', label: 'Medication', icon: 'medication', color: 'from-indigo-400 to-indigo-600' },
   ]

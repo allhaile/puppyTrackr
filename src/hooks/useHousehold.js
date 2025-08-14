@@ -21,67 +21,230 @@ export const useHousehold = (user) => {
     }
   }, [user])
 
+  const createHouseholdForUser = async () => {
+    try {
+      console.log('Creating household for user:', user?.id)
+      
+      // Generate a household name based on user profile
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('display_name, email')
+        .eq('id', user.id)
+        .single()
+      
+      const householdName = profile?.display_name 
+        ? `${profile.display_name}'s Household`
+        : profile?.email 
+        ? `${profile.email.split('@')[0]}'s Household`
+        : 'My Household'
+      
+      // Create the household
+      const { data: household, error: householdError } = await supabase
+        .from('households')
+        .insert([{
+          name: householdName,
+          created_by: user.id
+        }])
+        .select()
+        .single()
+      
+      if (householdError) {
+        console.error('Error creating household:', householdError)
+        throw householdError
+      }
+      
+      console.log('Created household:', household)
+      
+      // Add user as owner of the household
+      const { error: memberError } = await supabase
+        .from('household_members')
+        .insert([{
+          household_id: household.id,
+          user_id: user.id,
+          role: 'owner'
+        }])
+      
+      if (memberError) {
+        console.error('Error adding user to household:', memberError)
+        throw memberError
+      }
+      
+      console.log('Added user as household owner')
+      return household.id
+      
+    } catch (error) {
+      console.error('Failed to create household:', error)
+      throw error
+    }
+  }
+
   const fetchHouseholdData = async () => {
     try {
       setLoading(true)
+      setError(null)
+      console.log('Fetching household data for user:', user?.id)
       
-      // Get user's household
-      const { data: householdData, error: householdError } = await supabase
-        .from('household_members')
-        .select(`
-          household_id,
-          role,
-          households (
-            id,
-            name,
-            invite_code,
-            created_by
-          )
-        `)
-        .eq('user_id', user.id)
-        .single()
+      // Add a timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Household fetch timeout')), 10000)
+      )
+      
+      // Try the complex query first, with fallback to simple queries
+      let householdData, householdError
+      
+      try {
+        // Get user's household using foreign key relationship
+        const householdQueryPromise = supabase
+          .from('household_members')
+          .select(`
+            household_id,
+            role,
+            households (
+              id,
+              name,
+              invite_code,
+              created_by
+            )
+          `)
+          .eq('user_id', user.id)
+          .single()
 
-      if (householdError) throw householdError
+        const result = await Promise.race([householdQueryPromise, timeoutPromise])
+        householdData = result.data
+        householdError = result.error
+      } catch (relationshipError) {
+        console.log('Foreign key relationship failed, trying simple query:', relationshipError)
+        
+        // Fallback: Get household membership first, then household details separately
+        const { data: membershipData, error: membershipError } = await Promise.race([
+          supabase
+            .from('household_members')
+            .select('household_id, role')
+            .eq('user_id', user.id)
+            .single(),
+          timeoutPromise
+        ])
+        
+        if (membershipError) {
+          householdError = membershipError
+        } else {
+          // Get household details separately
+          const { data: householdDetails, error: householdDetailsError } = await Promise.race([
+            supabase
+              .from('households')
+              .select('id, name, invite_code, created_by')
+              .eq('id', membershipData.household_id)
+              .single(),
+            timeoutPromise
+          ])
+          
+          if (householdDetailsError) {
+            householdError = householdDetailsError
+          } else {
+            // Combine the data manually
+            householdData = {
+              household_id: membershipData.household_id,
+              role: membershipData.role,
+              households: householdDetails
+            }
+          }
+        }
+      }
 
+      if (householdError) {
+        console.log('Household error:', householdError)
+        // If user doesn't have a household yet, this is expected
+        if (householdError.code === 'PGRST116') {
+          console.log('User has no household - creating one automatically')
+          // Try to create a household automatically
+          try {
+            const householdId = await createHouseholdForUser()
+            if (householdId) {
+              // Retry fetching household data after creation
+              await fetchHouseholdData()
+              return
+            }
+          } catch (createError) {
+            console.error('Failed to create household:', createError)
+            setError('Failed to set up your household. Please try refreshing the page.')
+          }
+          
+          setHousehold(null)
+          setMembers([])
+          setDogs([])
+          setActiveDogId(null)
+          setLoading(false)
+          return
+        }
+        throw householdError
+      }
+
+      console.log('Household data:', householdData)
       const householdInfo = householdData.households
       setHousehold({
         ...householdInfo,
         userRole: householdData.role
       })
 
-      // Get household members
-      const { data: membersData, error: membersError } = await supabase
-        .from('household_members')
-        .select(`
-          user_id,
-          role,
-          joined_at,
-          user_profiles (
-            display_name,
-            avatar_url,
-            email
-          )
-        `)
-        .eq('household_id', householdInfo.id)
+      // Get household members with simple query (no foreign key relationship)
+      const { data: membersData, error: membersError } = await Promise.race([
+        supabase
+          .from('household_members')
+          .select('user_id, role, joined_at')
+          .eq('household_id', householdInfo.id),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Members fetch timeout')), 10000)
+        )
+      ])
 
-      if (membersError) throw membersError
+      if (membersError) {
+        console.log('Members error:', membersError)
+        throw membersError
+      }
 
-      setMembers(membersData.map(member => ({
-        id: member.user_id,
-        role: member.role,
-        joinedAt: member.joined_at,
-        ...member.user_profiles
-      })))
+      // Get user profiles separately for each member
+      const membersWithProfiles = await Promise.all(
+        membersData.map(async (member) => {
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('display_name, avatar_url, email')
+            .eq('id', member.user_id)
+            .single()
+          
+          return {
+            id: member.user_id,
+            role: member.role,
+            joinedAt: member.joined_at,
+            display_name: profile?.display_name || 'Unknown User',
+            avatar_url: profile?.avatar_url,
+            email: profile?.email
+          }
+        })
+      )
 
-      // Get household dogs
-      const { data: dogsData, error: dogsError } = await supabase
+      console.log('Members data:', membersWithProfiles)
+      setMembers(membersWithProfiles)
+
+      // Get household dogs with timeout
+      const dogsQueryPromise = supabase
         .from('puppies')
         .select('*')
         .eq('household_id', householdInfo.id)
         .order('created_at', { ascending: true })
 
-      if (dogsError) throw dogsError
+      const { data: dogsData, error: dogsError } = await Promise.race([
+        dogsQueryPromise,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Dogs fetch timeout')), 10000)
+        )
+      ])
 
+      if (dogsError) {
+        console.log('Dogs error:', dogsError)
+        throw dogsError
+      }
+
+      console.log('Dogs data:', dogsData)
       setDogs(dogsData)
       
       // Set active dog to first one if none selected
@@ -90,6 +253,7 @@ export const useHousehold = (user) => {
       }
 
     } catch (error) {
+      console.error('Error fetching household data:', error)
       setError(error.message)
     } finally {
       setLoading(false)

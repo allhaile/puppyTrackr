@@ -38,9 +38,16 @@ export const useActivities = (activeDogId, user) => {
         userId: entry.user_id,
         caregiverName: entry.user_profiles?.display_name || 'Unknown User',
         caregiverAvatar: entry.user_profiles?.avatar_url,
-        timestamp: entry.created_at,
+        timestamp: entry.timestamp || entry.created_at,
         createdAt: entry.created_at,
-        ...entry.details
+        // Map schema fields to app format
+        notes: entry.notes,
+        amount: entry.amount,
+        duration: entry.duration_minutes,
+        location: entry.location,
+        pottyType: entry.potty_type,
+        // Legacy support for any additional data
+        ...(entry.details || {})
       }))
 
       setActivities(formattedActivities)
@@ -55,17 +62,44 @@ export const useActivities = (activeDogId, user) => {
     try {
       setError(null)
       
-      // Extract details from activity data
-      const { type, petId, userId, ...details } = activityData
+      // Map activity data to schema fields
+      const { 
+        type, 
+        petId, 
+        userId, 
+        notes,
+        amount,
+        duration,
+        location,
+        pottyType,
+        timestamp,
+        ...otherDetails 
+      } = activityData
+      
+      // Prepare the entry data mapping to schema fields
+      const entryData = {
+        puppy_id: petId || activeDogId,
+        user_id: userId || user.id,
+        type,
+        notes,
+        timestamp: timestamp ? new Date(timestamp).toISOString() : undefined,
+        // Map specific fields
+        amount,
+        duration_minutes: duration ? parseInt(duration) : undefined,
+        location,
+        potty_type: pottyType,
+      }
+      
+      // Remove undefined fields
+      Object.keys(entryData).forEach(key => {
+        if (entryData[key] === undefined) {
+          delete entryData[key]
+        }
+      })
       
       const { data, error } = await supabase
         .from('puppy_entries')
-        .insert([{
-          puppy_id: petId || activeDogId,
-          user_id: userId || user.id,
-          type,
-          details
-        }])
+        .insert([entryData])
         .select(`
           *,
           user_profiles (
@@ -84,9 +118,14 @@ export const useActivities = (activeDogId, user) => {
         userId: data.user_id,
         caregiverName: data.user_profiles?.display_name || 'Unknown User',
         caregiverAvatar: data.user_profiles?.avatar_url,
-        timestamp: data.created_at,
+        timestamp: data.timestamp || data.created_at,
         createdAt: data.created_at,
-        ...data.details
+        // Map schema fields back to app format
+        notes: data.notes,
+        amount: data.amount,
+        duration: data.duration_minutes,
+        location: data.location,
+        pottyType: data.potty_type,
       }
 
       setActivities(prev => [formattedActivity, ...prev])

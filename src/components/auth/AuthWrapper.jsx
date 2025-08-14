@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../contexts/AuthContext'
 import LoadingScreen from '../ui/LoadingScreen'
@@ -8,18 +8,89 @@ const AuthWrapper = ({ children }) => {
   const { isAuthenticated, loading, signInWithEmail, signInWithPhone, verifyOtp, error } = useAuth()
   const [authStep, setAuthStep] = useState('method') // 'method', 'email', 'phone', 'verify'
   const [contactInfo, setContactInfo] = useState('')
-  const [otp, setOtp] = useState('')
   const [authMethod, setAuthMethod] = useState('')
+  const [localError, setLocalError] = useState('')
+  
+  // Use ref to prevent re-renders - store current value without triggering re-renders
+  const inputRef = useRef(null)
+  const contactInfoRef = useRef('')
+  const otpRef = useRef('')
+  const containerRef = useRef(null)
 
-  if (loading) {
-    return <LoadingScreen message="Checking authentication..." />
-  }
+  // Prevent viewport jumping on mobile
+  useEffect(() => {
+    const handleViewportChange = () => {
+      if (containerRef.current) {
+        const vh = window.innerHeight * 0.01
+        containerRef.current.style.setProperty('--vh', `${vh}px`)
+      }
+    }
 
-  if (isAuthenticated) {
-    return children
-  }
+    // Set initial height
+    handleViewportChange()
 
-  const handleSendOTP = async () => {
+    // Listen for viewport changes
+    window.addEventListener('resize', handleViewportChange)
+    window.addEventListener('orientationchange', handleViewportChange)
+
+    // Prevent scrolling when keyboard appears
+    const preventScroll = (e) => {
+      if (e.target.tagName === 'INPUT') {
+        e.preventDefault()
+        e.target.scrollIntoView({ behavior: 'instant', block: 'center' })
+      }
+    }
+
+    document.addEventListener('focusin', preventScroll)
+
+    return () => {
+      window.removeEventListener('resize', handleViewportChange)
+      window.removeEventListener('orientationchange', handleViewportChange)
+      document.removeEventListener('focusin', preventScroll)
+    }
+  }, [])
+
+  // All hooks must be called before any early returns
+  const handleInputChange = useCallback((e) => {
+    // Store value in ref without triggering re-render
+    contactInfoRef.current = e.target.value
+    // Removed setHasInput to eliminate re-renders
+  }, [])
+
+  const handleOtpInputChange = useCallback((e) => {
+    // Store in ref to prevent re-renders
+    otpRef.current = e.target.value
+  }, [])
+
+  const handleSendOTPClick = useCallback(async () => {
+    // Get current value from ref and update state only when needed
+    const currentValue = contactInfoRef.current.trim()
+    
+    // Simple validation - show error if empty
+    if (!currentValue) {
+      setLocalError('Please enter your ' + (authMethod === 'email' ? 'email' : 'phone number'))
+      return
+    }
+    
+    setContactInfo(currentValue) // This will trigger ONE re-render
+    
+    setLocalError('') // Clear local error
+    let result
+    if (authMethod === 'email') {
+      result = await signInWithEmail(currentValue)
+    } else {
+      result = await signInWithPhone(currentValue)
+    }
+
+    if (result.success) {
+      setAuthStep('verify')
+    } else {
+      setLocalError(result.error || 'An error occurred')
+    }
+  }, [authMethod, signInWithEmail, signInWithPhone])
+
+  const handleSendOTP = useCallback(async () => {
+    setLocalError('') // Clear local error
     let result
     if (authMethod === 'email') {
       result = await signInWithEmail(contactInfo)
@@ -29,19 +100,41 @@ const AuthWrapper = ({ children }) => {
 
     if (result.success) {
       setAuthStep('verify')
+    } else {
+      setLocalError(result.error || 'An error occurred')
     }
-  }
+  }, [authMethod, contactInfo, signInWithEmail, signInWithPhone])
 
-  const handleVerifyOTP = async () => {
+  const handleVerifyOTP = useCallback(async () => {
+    const currentOtp = otpRef.current.trim()
+    
+    // Simple validation
+    if (currentOtp.length < 6) {
+      setLocalError('Please enter the complete 6-digit code')
+      return
+    }
+    
+    setLocalError('') // Clear local error
     const result = await verifyOtp({
       [authMethod === 'email' ? 'email' : 'phone']: contactInfo,
-      token: otp,
+      token: currentOtp,
       type: authMethod === 'email' ? 'email' : 'sms'
     })
 
     if (result.success) {
       // User will be redirected automatically due to auth state change
+    } else {
+      setLocalError(result.error || 'Verification failed')
     }
+  }, [authMethod, contactInfo, verifyOtp])
+
+  // Early returns must come AFTER all hooks
+  if (loading) {
+    return <LoadingScreen message="Checking authentication..." />
+  }
+
+  if (isAuthenticated) {
+    return children
   }
 
   const AuthMethodSelection = () => (
@@ -88,7 +181,7 @@ const AuthWrapper = ({ children }) => {
     </motion.div>
   )
 
-  const ContactForm = () => (
+  const ContactForm = React.memo(() => (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
@@ -103,34 +196,37 @@ const AuthWrapper = ({ children }) => {
         </p>
       </div>
 
-              <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              {authMethod === 'email' ? 'Email Address' : 'Phone Number'}
-            </label>
-            <input
-              type={authMethod === 'email' ? 'email' : 'tel'}
-              value={contactInfo}
-              onChange={(e) => setContactInfo(e.target.value)}
-              placeholder={authMethod === 'email' ? 'your@email.com' : '+1 (555) 123-4567'}
-              className="input w-full"
-              autoFocus
-            />
-          </div>
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            {authMethod === 'email' ? 'Email Address' : 'Phone Number'}
+          </label>
+          <input
+            ref={inputRef}
+            key={`contact-input-${authMethod}`}
+            type={authMethod === 'email' ? 'email' : 'tel'}
+            defaultValue=""
+            onChange={handleInputChange}
+            placeholder={authMethod === 'email' ? 'your@email.com' : '+1 (555) 123-4567'}
+            className="input w-full"
+            style={{ fontSize: '16px' }}
+            autoComplete="off"
+            autoFocus
+          />
+        </div>
 
-          <div className="min-h-[60px]">
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                {error}
-              </div>
-            )}
-          </div>
+        <div className="h-[76px] flex items-start">
+          {(localError || error) && (
+            <div className="w-full p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {localError || error}
+            </div>
+          )}
+        </div>
 
         <div className="space-y-3">
           <button
-            onClick={handleSendOTP}
-            disabled={!contactInfo.trim()}
-            className="w-full btn-primary disabled:opacity-50"
+            onClick={handleSendOTPClick}
+            className="w-full btn-primary"
           >
             Send Verification Code
           </button>
@@ -144,7 +240,7 @@ const AuthWrapper = ({ children }) => {
         </div>
       </div>
     </motion.div>
-  )
+  ))
 
   const VerificationForm = () => (
     <motion.div
@@ -157,37 +253,43 @@ const AuthWrapper = ({ children }) => {
         <p className="text-muted-foreground">
           We sent a code to {contactInfo}
         </p>
+        {process.env.NODE_ENV === 'development' && (
+          <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+            Development: If email is empty, try codes: 123456 or 000000
+          </p>
+        )}
       </div>
 
-              <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Verification Code
-            </label>
-            <input
-              type="text"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              placeholder="Enter 6-digit code"
-              className="input w-full text-center text-lg tracking-wider"
-              maxLength={6}
-              autoFocus
-            />
-          </div>
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-2">
+            Verification Code
+          </label>
+          <input
+            type="text"
+            defaultValue=""
+            onChange={handleOtpInputChange}
+            placeholder="Enter 6-digit code"
+            className="input w-full text-center text-lg tracking-wider"
+            style={{ fontSize: '16px' }}
+            maxLength={6}
+            autoComplete="off"
+            autoFocus
+          />
+        </div>
 
-          <div className="min-h-[60px]">
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                {error}
-              </div>
-            )}
-          </div>
+        <div className="h-[76px] flex items-start">
+          {(localError || error) && (
+            <div className="w-full p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {localError || error}
+            </div>
+          )}
+        </div>
 
         <div className="space-y-3">
           <button
             onClick={handleVerifyOTP}
-            disabled={otp.length < 6}
-            className="w-full btn-primary disabled:opacity-50"
+            className="w-full btn-primary"
           >
             Verify & Sign In
           </button>
@@ -225,7 +327,14 @@ const AuthWrapper = ({ children }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
+    <div 
+      ref={containerRef}
+      className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4"
+      style={{ 
+        minHeight: 'calc(var(--vh, 1vh) * 100)',
+        position: 'relative'
+      }}
+    >
       {/* Background watermark */}
       <div 
         className="fixed inset-0 pointer-events-none opacity-[0.08] dark:opacity-[0.06]"
@@ -242,7 +351,7 @@ const AuthWrapper = ({ children }) => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="glass-card"
+          className="glass-card min-h-[500px] flex flex-col"
         >
           {/* Logo */}
           <div className="text-center mb-8">
@@ -252,9 +361,13 @@ const AuthWrapper = ({ children }) => {
             <h1 className="text-xl font-bold">PuppyTrackr</h1>
           </div>
 
-          <AnimatePresence mode="wait">
-            {getCurrentForm()}
-          </AnimatePresence>
+          <div className="flex-1 flex items-center">
+            <div className="w-full">
+              <AnimatePresence mode="wait">
+                {getCurrentForm()}
+              </AnimatePresence>
+            </div>
+          </div>
         </motion.div>
       </div>
     </div>
