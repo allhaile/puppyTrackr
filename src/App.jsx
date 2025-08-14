@@ -20,6 +20,7 @@ const CareManagement = lazy(() => import('./pages/care/CareManagement'))
 const Settings = lazy(() => import('./pages/settings/Settings'))
 const Onboarding = lazy(() => import('./pages/onboarding/Onboarding'))
 const InviteHandler = lazy(() => import('./components/household/InviteHandler'))
+const HouseholdSetup = lazy(() => import('./components/household/HouseholdSetup'))
 
 function App() {
   useEffect(() => {
@@ -37,21 +38,23 @@ function App() {
             <PetProvider>
               <AnimatePresence mode="wait">
                 <Suspense fallback={<LoadingScreen />}>
-                                      <Routes>
-                      {/* Household invite route - outside layout for full screen experience */}
-                      <Route path="/join/:code" element={<InviteHandler />} />
-                      
-                      <Route element={<Layout />}>
-                        <Route path="/" element={<Dashboard />} />
-                        <Route path="/log" element={<ActivityLogging />} />
-                        <Route path="/profile/:petId?" element={<PetProfile />} />
-                        <Route path="/analytics" element={<Analytics />} />
-                        <Route path="/care" element={<CareManagement />} />
-                        <Route path="/settings" element={<Settings />} />
-                        <Route path="/onboarding" element={<Onboarding />} />
-                        <Route path="*" element={<Navigate to="/" replace />} />
-                      </Route>
-                    </Routes>
+                  <Routes>
+                    {/* Household invite route - outside layout for full screen experience */}
+                    <Route path="/join/:code" element={<InviteHandler />} />
+                    {/* One-time household setup */}
+                    <Route path="/household/setup" element={<HouseholdSetup />} />
+                    
+                    <Route element={<Layout />}>
+                      <Route path="/" element={<Dashboard />} />
+                      <Route path="/log" element={<ActivityLogging />} />
+                      <Route path="/profile/:petId?" element={<PetProfile />} />
+                      <Route path="/analytics" element={<Analytics />} />
+                      <Route path="/care" element={<CareManagement />} />
+                      <Route path="/settings" element={<Settings />} />
+                      <Route path="/onboarding" element={<Onboarding />} />
+                      <Route path="*" element={<Navigate to="/" replace />} />
+                    </Route>
+                  </Routes>
                 </Suspense>
               </AnimatePresence>
             </PetProvider>

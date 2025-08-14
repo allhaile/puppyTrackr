@@ -54,20 +54,23 @@ const PetProfile = () => {
     }
   }, [currentPet])
   
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     
     const petData = {
       ...formData,
       avatar: avatarEmoji,
+      name: formData.name?.trim() || 'New Pup'
     }
     
     if (isNewPet) {
-      const newPet = addPet(petData)
-      setActivePet(newPet.id)
+      const created = await addPet(petData)
+      if (created && created.id) {
+        setActivePet(created.id)
+      }
       navigate('/')
     } else if (currentPet) {
-      updatePet(currentPet.id, petData)
+      await updatePet(currentPet.id, petData)
       navigate('/')
     }
   }
@@ -243,7 +246,7 @@ const PetProfile = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-2">Vet Name</label>
+                <label className="block text sm font-medium mb-2">Vet Name</label>
                 <input
                   type="text"
                   value={formData.vetName}

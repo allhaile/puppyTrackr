@@ -14,6 +14,8 @@ const Settings = () => {
     updateHouseholdName,
     generateNewInviteCode,
     removeMember,
+    updateMemberRole,
+    leaveHousehold,
     signOut 
   } = useAuth()
   
@@ -29,6 +31,8 @@ const Settings = () => {
     name: household?.name || ''
   })
 
+  const isOwner = household?.role === 'owner'
+
   const handleProfileUpdate = async () => {
     const result = await updateProfile(profileForm)
     if (result.success) {
@@ -37,6 +41,7 @@ const Settings = () => {
   }
 
   const handleHouseholdUpdate = async () => {
+    if (!isOwner) return
     const result = await updateHouseholdName(householdForm.name)
     if (result.success) {
       setIsEditing(false)
@@ -44,12 +49,25 @@ const Settings = () => {
   }
 
   const handleGenerateInvite = async () => {
+    if (!isOwner) return
     await generateNewInviteCode()
   }
 
   const handleRemoveMember = async (memberId) => {
+    if (!isOwner) return
     if (confirm('Are you sure you want to remove this member?')) {
       await removeMember(memberId)
+    }
+  }
+
+  const handleRoleChange = async (memberId, role) => {
+    if (!isOwner) return
+    await updateMemberRole(memberId, role)
+  }
+
+  const handleLeaveHousehold = async () => {
+    if (confirm('Are you sure you want to leave this household?')) {
+      await leaveHousehold()
     }
   }
 
@@ -141,7 +159,7 @@ const Settings = () => {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Household Settings</h2>
-              {household?.userRole === 'owner' && (
+              {isOwner && (
                 <button
                   onClick={() => setIsEditing(!isEditing)}
                   className="btn-outline text-sm"
@@ -154,7 +172,7 @@ const Settings = () => {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Household Name</label>
-                {isEditing ? (
+                {isOwner && isEditing ? (
                   <input
                     type="text"
                     value={householdForm.name}
@@ -171,7 +189,7 @@ const Settings = () => {
 
               <div>
                 <label className="block text-sm font-medium mb-2">Your Role</label>
-                <p className="text-muted-foreground capitalize">{household?.userRole}</p>
+                <p className="text-muted-foreground capitalize">{household?.role}</p>
               </div>
 
               <div>
@@ -180,7 +198,7 @@ const Settings = () => {
                   <code className="bg-muted px-3 py-2 rounded text-sm font-mono break-all">
                     {household?.invite_code}
                   </code>
-                  {household?.userRole === 'owner' && (
+                  {isOwner && (
                     <button
                       onClick={handleGenerateInvite}
                       className="btn-outline text-sm w-full sm:w-auto"
@@ -201,23 +219,35 @@ const Settings = () => {
                     className="input w-full font-mono text-sm"
                   />
                   <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
-                    <button
-                      onClick={copyInviteLink}
-                      className="btn-outline text-sm w-full sm:w-auto"
-                    >
-                      Copy
-                    </button>
-                    <button
-                      onClick={() => setShowInviteModal(true)}
-                      className="btn-primary text-sm w-full sm:w-auto"
-                    >
-                      Share
-                    </button>
+                    {isOwner && (
+                      <>
+                        <button
+                          onClick={copyInviteLink}
+                          className="btn-outline text-sm w-full sm:w-auto"
+                        >
+                          Copy
+                        </button>
+                        <button
+                          onClick={() => setShowInviteModal(true)}
+                          className="btn-primary text-sm w-full sm:w-auto"
+                        >
+                          Share
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {isEditing && (
+              {household && household.role !== 'owner' && (
+                <div className="pt-2">
+                  <button onClick={handleLeaveHousehold} className="text-red-500 hover:text-red-700 text-sm">
+                    Leave household
+                  </button>
+                </div>
+              )}
+
+              {isOwner && isEditing && (
                 <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 pt-4">
                   <button
                     onClick={handleHouseholdUpdate}
@@ -242,12 +272,14 @@ const Settings = () => {
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
               <h2 className="text-xl font-semibold">Household Members</h2>
-              <button
-                onClick={() => setShowInviteModal(true)}
-                className="btn-primary text-sm w-full sm:w-auto"
-              >
-                Invite Member
-              </button>
+              {isOwner && (
+                <button
+                  onClick={() => setShowInviteModal(true)}
+                  className="btn-primary text-sm w-full sm:w-auto"
+                >
+                  Invite Member
+                </button>
+              )}
             </div>
 
             <div className="space-y-3">
@@ -276,14 +308,28 @@ const Settings = () => {
                     </div>
                   </div>
                   
-                  {household?.userRole === 'owner' && member.id !== user?.id && (
-                    <button
-                      onClick={() => handleRemoveMember(member.id)}
-                      className="text-red-500 hover:text-red-700 text-sm w-full sm:w-auto text-center sm:text-right"
-                    >
-                      Remove
-                    </button>
-                  )}
+                  <div className="flex items-center space-x-2 w-full sm:w-auto">
+                    {isOwner && member.id !== user?.id && (
+                      <>
+                        <select
+                          value={member.role}
+                          onChange={(e) => handleRoleChange(member.id, e.target.value)}
+                          className="input text-sm py-2 px-3"
+                        >
+                          <option value="owner">Owner</option>
+                          <option value="member">Member</option>
+                          <option value="sitter">Sitter</option>
+                          <option value="guest">Guest</option>
+                        </select>
+                        <button
+                          onClick={() => handleRemoveMember(member.id)}
+                          className="text-red-500 hover:text-red-700 text-sm w-full sm:w-auto text-center sm:text-right"
+                        >
+                          Remove
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -295,9 +341,11 @@ const Settings = () => {
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
               <h2 className="text-xl font-semibold">Dogs</h2>
-              <button className="btn-primary text-sm w-full sm:w-auto">
-                Add Dog
-              </button>
+              {isOwner && (
+                <button className="btn-primary text-sm w-full sm:w-auto">
+                  Add Dog
+                </button>
+              )}
             </div>
 
             <div className="space-y-3">
@@ -327,12 +375,14 @@ const Settings = () => {
                     </div>
                   </div>
                   
-                  <div className="flex items-center space-x-2 w-full sm:w-auto">
-                    <button className="btn-outline text-sm flex-1 sm:flex-none">Edit</button>
-                    <button className="text-red-500 hover:text-red-700 text-sm flex-1 sm:flex-none text-center">
-                      Remove
-                    </button>
-                  </div>
+                  {isOwner && (
+                    <div className="flex items-center space-x-2 w-full sm:w-auto">
+                      <button className="btn-outline text-sm flex-1 sm:flex-none">Edit</button>
+                      <button className="text-red-500 hover:text-red-700 text-sm flex-1 sm:flex-none text-center">
+                        Remove
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

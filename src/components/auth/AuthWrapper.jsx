@@ -3,9 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../contexts/AuthContext'
 import LoadingScreen from '../ui/LoadingScreen'
 import Icon from '../ui/Icon'
+import { useNavigate } from 'react-router-dom'
 
 const AuthWrapper = ({ children }) => {
-  const { isAuthenticated, loading, signInWithEmail, signInWithPhone, verifyOtp, error } = useAuth()
+  const { isAuthenticated, loading, signInWithEmail, signInWithPhone, verifyOtp, error, households } = useAuth()
+  const navigate = useNavigate()
   const [authStep, setAuthStep] = useState('method') // 'method', 'email', 'phone', 'verify'
   const [contactInfo, setContactInfo] = useState('')
   const [authMethod, setAuthMethod] = useState('')
@@ -16,6 +18,37 @@ const AuthWrapper = ({ children }) => {
   const contactInfoRef = useRef('')
   const otpRef = useRef('')
   const containerRef = useRef(null)
+
+  // After sign-in, if user has no memberships, route to setup. If we have a pending invite, go to it first.
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      const pendingCode = localStorage.getItem('pending_invite_code')
+      if (pendingCode) {
+        navigate(`/join/${pendingCode}`, { replace: true })
+        return
+      }
+
+      const path = window.location.pathname
+      const onInvite = path.startsWith('/join/')
+      const onSetup = path.startsWith('/household/setup')
+      if (!onInvite && !onSetup && (!households || households.length === 0)) {
+        navigate('/household/setup', { replace: true })
+      }
+    }
+  }, [loading, isAuthenticated, households, navigate])
+
+  // Capture invite code while unauthenticated so we can restore after login
+  useEffect(() => {
+    if (!isAuthenticated) {
+      const path = window.location.pathname
+      if (path.startsWith('/join/')) {
+        const code = path.split('/').pop()
+        if (code) {
+          localStorage.setItem('pending_invite_code', code)
+        }
+      }
+    }
+  }, [isAuthenticated])
 
   // Prevent viewport jumping on mobile
   useEffect(() => {
@@ -129,7 +162,7 @@ const AuthWrapper = ({ children }) => {
   }, [authMethod, contactInfo, verifyOtp])
 
   // Early returns must come AFTER all hooks
-  if (loading) {
+  if (loading && !isAuthenticated) {
     return <LoadingScreen message="Checking authentication..." />
   }
 

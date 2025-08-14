@@ -22,21 +22,26 @@ const InviteHandler = () => {
     } else if (code) {
       // Store invite code for after authentication
       localStorage.setItem('pending_invite_code', code)
+      setLoading(false)
     }
   }, [code, isAuthenticated])
 
   const fetchHouseholdInfo = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('households')
-        .select('id, name, created_by')
-        .eq('invite_code', code)
-        .single()
+      const { data, error } = await supabase.rpc('get_household_by_invite', {
+        invite_code_param: code
+      })
 
       if (error) throw error
 
-      setHousehold(data)
+      // RPC returns an array of rows
+      const row = Array.isArray(data) ? data[0] : data
+      if (!row) {
+        throw new Error('Invalid or expired invite link')
+      }
+
+      setHousehold(row)
     } catch (error) {
       setError('Invalid or expired invite link')
     } finally {
@@ -49,14 +54,20 @@ const InviteHandler = () => {
       setJoining(true)
       setError(null)
 
-      const { data, error } = await supabase.rpc('join_household_by_invite', {
-        invite_code_param: code,
-        user_display_name: displayName || null
+      // Optional UX: update display name if provided
+      if (displayName && user?.id) {
+        await supabase.from('user_profiles').update({ display_name: displayName }).eq('id', user.id)
+      }
+
+      const { error } = await supabase.rpc('join_household_by_invite', {
+        invite_code_param: code
       })
 
       if (error) {
-        if (error.message.includes('already a member')) {
+        if (error.message?.toLowerCase().includes('already a member')) {
           setError('You are already a member of this household')
+        } else if (error.message?.toLowerCase().includes('invalid')) {
+          setError('Invalid or expired invite code')
         } else {
           throw error
         }
@@ -131,7 +142,7 @@ const InviteHandler = () => {
       >
         <div className="glass-card">
           <div className="text-center mb-6">
-            <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mb-4">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to secondary flex items-center justify-center mb-4">
               <Icon name="users" className="text-white" size={32} />
             </div>
             <h1 className="text-xl font-bold">Join {household?.name}</h1>
