@@ -70,7 +70,7 @@ export const useSupabaseAuth = () => {
                 id: userId,
                 display_name: user.email ? user.email.split('@')[0] : 'New User',
                 email: user.email || null,
-                phone: user.phone || null
+                phone: null
               }], {
                 onConflict: 'id'
               })
@@ -84,7 +84,7 @@ export const useSupabaseAuth = () => {
                 id: userId,
                 display_name: 'User',
                 email: user.email || null,
-                phone: user.phone || null
+                phone: null
               })
               return
             }
@@ -137,28 +137,13 @@ export const useSupabaseAuth = () => {
     }
   }
 
-  const signInWithPhone = async (phone) => {
-    try {
-      setError(null)
-      const { error } = await supabase.auth.signInWithOtp({
-        phone,
-      })
-      if (error) throw error
-      return { success: true }
-    } catch (error) {
-      setError(error.message)
-      return { success: false, error: error.message }
-    }
-  }
-
   const verifyOtp = async (params) => {
     try {
       setError(null)
       
       // Development bypass for specific codes
       if (params.token === '123456' || params.token === '000000') {
-        console.log('Using development bypass code for:', params.email || params.phone)
-        // Just return success and let auth state handle it
+        console.log('Using development bypass code for:', params.email)
         return { success: true }
       }
       
@@ -184,9 +169,12 @@ export const useSupabaseAuth = () => {
   const updateProfile = async (updates) => {
     try {
       setError(null)
+      const payload = {}
+      if (typeof updates.display_name === 'string') payload.display_name = updates.display_name
+      if (typeof updates.phone === 'string' || updates.phone === null) payload.phone = updates.phone
       const { error } = await supabase
         .from('user_profiles')
-        .update(updates)
+        .update(payload)
         .eq('id', user.id)
 
       if (error) throw error
@@ -204,7 +192,6 @@ export const useSupabaseAuth = () => {
     loading,
     error,
     signInWithEmail,
-    signInWithPhone,
     verifyOtp,
     signOut,
     updateProfile,

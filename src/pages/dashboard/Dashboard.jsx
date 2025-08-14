@@ -11,7 +11,7 @@ import WeatherWidget from './WeatherWidget'
 
 const Dashboard = () => {
   const { activePet, todayActivities, stats, getLastActivityTime } = usePets()
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [greeting, setGreeting] = useState('')
 
   useEffect(() => {
@@ -29,8 +29,8 @@ const Dashboard = () => {
           animate={{ opacity: 1, y: 0 }}
           className="text-center py-16"
         >
-          <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
-            <Icon name="pet" size={48} className="text-primary" />
+          <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center text-5xl">
+            <span>🐶</span>
           </div>
           <h1 className="text-3xl font-bold mb-4">Welcome to PuppyTrackr!</h1>
           <p className="text-muted-foreground mb-8 max-w-md mx-auto">
@@ -47,6 +47,8 @@ const Dashboard = () => {
     )
   }
 
+  const displayName = profile?.display_name || user?.email || 'Pet Parent'
+
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
       {/* Header */}
@@ -55,12 +57,19 @@ const Dashboard = () => {
         animate={{ opacity: 1, y: 0 }}
         className="space-y-2"
       >
-        <h1 className="text-3xl font-bold">
-          {greeting}, {user?.name || 'Pet Parent'}!
-        </h1>
-        <p className="text-muted-foreground">
-          Here's how {activePet.name} is doing today
-        </p>
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center text-xl">
+            <span>{activePet?.avatar || '🐶'}</span>
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold">
+              {greeting}, {displayName}!
+            </h1>
+            <p className="text-muted-foreground">
+              Here's how {activePet.name} is doing today
+            </p>
+          </div>
+        </div>
       </motion.div>
 
       {/* Smart Insights Banner */}
@@ -98,7 +107,7 @@ const Dashboard = () => {
         transition={{ delay: 0.3 }}
         className="grid grid-cols-2 sm:grid-cols-4 gap-4"
       >
-        {[
+        {[ 
           { type: 'meal', label: 'Log Meal', icon: 'meal', color: 'from-orange-400 to-orange-600' },
           { type: 'walk', label: 'Log Walk', icon: 'walk', color: 'from-green-400 to-green-600' },
           { type: 'potty', label: 'Log Potty', icon: 'potty', color: 'from-blue-400 to-blue-600' },

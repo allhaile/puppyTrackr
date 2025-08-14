@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import Icon from '../../components/ui/Icon'
+import { dogBreeds } from '../../lib/dogBreeds'
 
 const Onboarding = () => {
   const navigate = useNavigate()
@@ -87,7 +88,13 @@ const Onboarding = () => {
               onChange={(e) => setFormData({ ...formData, petBreed: e.target.value })}
               placeholder="e.g., Golden Retriever"
               className="input w-full"
+              list="breed-options-onboarding"
             />
+            <datalist id="breed-options-onboarding">
+              {dogBreeds.map((breed) => (
+                <option key={breed} value={breed} />
+              ))}
+            </datalist>
           </div>
           <div>
             <label className="block text-sm font-medium mb-2">Age</label>

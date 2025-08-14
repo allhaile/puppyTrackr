@@ -5,6 +5,7 @@ import { useTheme } from '../../contexts/ThemeContext'
 import { usePets } from '../../contexts/PetContext'
 import { useAuth } from '../../contexts/AuthContext'
 import Icon from '../ui/Icon'
+import Logo from '../ui/Logo'
 
 const Header = () => {
   const { theme, toggleTheme } = useTheme()
@@ -24,8 +25,8 @@ const Header = () => {
             className="flex items-center space-x-2 cursor-pointer"
             onClick={() => navigate('/')}
           >
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-              <Icon name="pet" className="text-white" size={20} />
+            <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center">
+              <Logo size={32} />
             </div>
             <span className="font-bold text-lg hidden sm:block">PuppyTrackr</span>
           </motion.div>
@@ -96,8 +97,8 @@ const Header = () => {
                   className="w-full glass px-3 py-2 rounded-xl flex items-center justify-between hover:bg-muted/20 transition-colors"
                 >
                   <div className="flex items-center space-x-2">
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
-                      <Icon name="pet" size={14} className="text-primary" />
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center text-sm">
+                      <span>{activePet?.avatar || '🐶'}</span>
                     </div>
                     <span className="text-sm font-medium truncate">
                       {activePet ? activePet.name : 'Select Pet'}
@@ -129,8 +130,8 @@ const Header = () => {
                             activePet?.id === pet.id ? 'bg-muted/30' : ''
                           }`}
                         >
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
-                            <Icon name="pet" size={16} className="text-primary" />
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center text-base">
+                            <span>{pet.avatar || '🐶'}</span>
                           </div>
                           <div className="flex-1 text-left">
                             <p className="font-medium">{pet.name}</p>

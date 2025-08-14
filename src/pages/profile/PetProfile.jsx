@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { useParams, useNavigate } from 'react-router-dom'
 import { usePets } from '../../contexts/PetContext'
 import Icon from '../../components/ui/Icon'
+import { dogBreeds } from '../../lib/dogBreeds'
 
 const PetProfile = () => {
   const { petId } = useParams()
@@ -174,7 +175,13 @@ const PetProfile = () => {
                   onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
                   className="input w-full"
                   placeholder="e.g., Golden Retriever"
+                  list="breed-options-profile"
                 />
+                <datalist id="breed-options-profile">
+                  {dogBreeds.map((breed) => (
+                    <option key={breed} value={breed} />
+                  ))}
+                </datalist>
               </div>
               
               <div>

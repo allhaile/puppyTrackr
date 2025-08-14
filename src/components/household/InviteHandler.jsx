@@ -64,9 +64,13 @@ const InviteHandler = () => {
       })
 
       if (error) {
-        if (error.message?.toLowerCase().includes('already a member')) {
-          setError('You are already a member of this household')
-        } else if (error.message?.toLowerCase().includes('invalid')) {
+        const msg = error.message?.toLowerCase() || ''
+        if (msg.includes('already a member')) {
+          // Clear stored code and redirect to dashboard
+          localStorage.removeItem('pending_invite_code')
+          navigate('/', { replace: true })
+          return
+        } else if (msg.includes('invalid')) {
           setError('Invalid or expired invite code')
         } else {
           throw error

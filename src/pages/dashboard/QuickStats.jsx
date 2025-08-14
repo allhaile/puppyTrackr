@@ -26,10 +26,10 @@ const QuickStats = ({ stats }) => {
       target: 2,
     },
     { 
-      label: 'Medications', 
-      value: stats.medications, 
-      icon: 'medication', 
-      color: 'from-indigo-400 to-indigo-600',
+      label: 'Play', 
+      value: stats.play, 
+      icon: 'play', 
+      color: 'from-pink-400 to-pink-600',
       target: 2,
     },
   ]

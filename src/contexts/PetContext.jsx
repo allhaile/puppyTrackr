@@ -11,9 +11,9 @@ export const usePets = () => {
 }
 
 export const PetProvider = ({ children }) => {
-  const { user, dogs, activeDog, activeDogId, setActiveDogId, addDog, updateDog, deleteDog } = useAuth()
+  const { user, profile, dogs, activeDog, activeDogId, setActiveDogId, addDog, updateDog, deleteDog, members } = useAuth()
   
-  const activitiesHook = useActivities(activeDogId, user)
+  const activitiesHook = useActivities(activeDogId, user, members, profile)
 
   // Get pet data from auth context
   const pets = dogs || []

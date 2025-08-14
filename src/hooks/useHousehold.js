@@ -41,32 +41,21 @@ export const useHousehold = (user) => {
       return
     }
 
-    // Members
-    const { data: membersData, error: membersError } = await supabase
-      .from('household_members')
-      .select('user_id, role, joined_at')
-      .eq('household_id', householdId)
+    // Members via RPC (avoids recursive RLS)
+    const { data: membersData, error: membersError } = await supabase.rpc('get_household_members', {
+      p_household_id: householdId
+    })
 
     if (membersError) throw membersError
 
-    const membersWithProfiles = await Promise.all(
-      membersData.map(async (member) => {
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('display_name, email')
-          .eq('id', member.user_id)
-          .single()
-        
-        return {
-          id: member.user_id,
-          role: member.role,
-          joinedAt: member.joined_at,
-          display_name: profile?.display_name || 'Unknown User',
-          avatar_url: undefined,
-          email: profile?.email
-        }
-      })
-    )
+    const membersWithProfiles = (membersData || []).map((member) => ({
+      id: member.user_id,
+      role: member.role,
+      joinedAt: member.joined_at,
+      display_name: member.display_name || 'Unknown User',
+      avatar_url: undefined,
+      email: member.email
+    }))
 
     setMembers(membersWithProfiles)
 
@@ -99,7 +88,7 @@ export const useHousehold = (user) => {
           household_id,
           role,
           joined_at,
-          households (
+          households:household_id (
             id,
             name,
             invite_code,
@@ -121,15 +110,28 @@ export const useHousehold = (user) => {
         return
       }
 
-      // Normalize list
-      const normalized = data.map(m => ({
-        id: m.households.id,
-        name: m.households.name,
-        invite_code: m.households.invite_code,
-        owner_id: m.households.owner_id,
-        role: m.role,
-        joined_at: m.joined_at,
-      }))
+      // Normalize list, filtering out any null household rows (RLS could hide them)
+      const normalized = data
+        .filter(m => m.households)
+        .map(m => ({
+          id: m.households.id,
+          name: m.households.name,
+          invite_code: m.households.invite_code,
+          owner_id: m.households.owner_id,
+          role: m.role,
+          joined_at: m.joined_at,
+        }))
+
+      if (normalized.length === 0) {
+        // All rows hidden by RLS; leave a helpful error and reset state
+        setError('Unable to load household details due to access policies')
+        setHouseholds([])
+        setHousehold(null)
+        setMembers([])
+        setDogs([])
+        setActiveDogId(null)
+        return
+      }
 
       setHouseholds(normalized)
 
@@ -170,9 +172,10 @@ export const useHousehold = (user) => {
       setError(null)
       if (!household?.id) throw new Error('No active household')
 
-      // Only insert valid columns for puppies table
+      // Insert allowed columns
       const insertData = {
         name: dogData?.name || 'New Pup',
+        avatar: dogData?.avatar || null,
         household_id: household.id
       }
 
@@ -190,7 +193,6 @@ export const useHousehold = (user) => {
         setActiveDogId(data.id)
       }
 
-      // Return the created dog object directly for compatibility
       return data
     } catch (error) {
       setError(error.message)
@@ -206,6 +208,9 @@ export const useHousehold = (user) => {
       const updateData = {}
       if (typeof updates?.name === 'string') {
         updateData.name = updates.name
+      }
+      if (typeof updates?.avatar === 'string') {
+        updateData.avatar = updates.avatar
       }
 
       const { data, error } = await supabase

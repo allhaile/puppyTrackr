@@ -1,10 +1,27 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
-export const useActivities = (activeDogId, user) => {
+export const useActivities = (activeDogId, user, members = [], profile = null) => {
   const [activities, setActivities] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+
+  // Build a quick lookup for member display names (no hooks to avoid order changes)
+  const userIdToName = (() => {
+    const map = new Map()
+    if (Array.isArray(members)) {
+      for (const m of members) {
+        if (m && m.id) {
+          map.set(m.id, m.display_name || m.email || 'Unknown User')
+        }
+      }
+    }
+    if (user?.id) {
+      const selfName = profile?.display_name || user.email || 'You'
+      map.set(user.id, selfName)
+    }
+    return map
+  })()
 
   useEffect(() => {
     if (activeDogId && user) {
@@ -19,13 +36,7 @@ export const useActivities = (activeDogId, user) => {
       setLoading(true)
       const { data, error } = await supabase
         .from('puppy_entries')
-        .select(`
-          *,
-          user_profiles (
-            display_name,
-            avatar_url
-          )
-        `)
+        .select('*')
         .eq('puppy_id', activeDogId)
         .order('created_at', { ascending: false })
 
@@ -36,17 +47,11 @@ export const useActivities = (activeDogId, user) => {
         type: entry.type,
         petId: entry.puppy_id,
         userId: entry.user_id,
-        caregiverName: entry.user_profiles?.display_name || 'Unknown User',
-        caregiverAvatar: entry.user_profiles?.avatar_url,
+        caregiverName: userIdToName.get(entry.user_id) || 'Unknown User',
+        caregiverAvatar: undefined,
         timestamp: entry.timestamp || entry.created_at,
         createdAt: entry.created_at,
-        // Map schema fields to app format
         notes: entry.notes,
-        amount: entry.amount,
-        duration: entry.duration_minutes,
-        location: entry.location,
-        pottyType: entry.potty_type,
-        // Legacy support for any additional data
         ...(entry.details || {})
       }))
 
@@ -62,51 +67,32 @@ export const useActivities = (activeDogId, user) => {
     try {
       setError(null)
       
-      // Map activity data to schema fields
       const { 
         type, 
         petId, 
         userId, 
         notes,
-        amount,
-        duration,
-        location,
-        pottyType,
         timestamp,
         ...otherDetails 
       } = activityData
       
-      // Prepare the entry data mapping to schema fields
       const entryData = {
         puppy_id: petId || activeDogId,
         user_id: userId || user.id,
         type,
         notes,
         timestamp: timestamp ? new Date(timestamp).toISOString() : undefined,
-        // Map specific fields
-        amount,
-        duration_minutes: duration ? parseInt(duration) : undefined,
-        location,
-        potty_type: pottyType,
+        details: Object.keys(otherDetails).length > 0 ? otherDetails : undefined,
       }
       
-      // Remove undefined fields
       Object.keys(entryData).forEach(key => {
-        if (entryData[key] === undefined) {
-          delete entryData[key]
-        }
+        if (entryData[key] === undefined) delete entryData[key]
       })
       
       const { data, error } = await supabase
         .from('puppy_entries')
         .insert([entryData])
-        .select(`
-          *,
-          user_profiles (
-            display_name,
-            avatar_url
-          )
-        `)
+        .select('*')
         .single()
 
       if (error) throw error
@@ -116,16 +102,12 @@ export const useActivities = (activeDogId, user) => {
         type: data.type,
         petId: data.puppy_id,
         userId: data.user_id,
-        caregiverName: data.user_profiles?.display_name || 'Unknown User',
-        caregiverAvatar: data.user_profiles?.avatar_url,
+        caregiverName: userIdToName.get(data.user_id) || 'Unknown User',
+        caregiverAvatar: undefined,
         timestamp: data.timestamp || data.created_at,
         createdAt: data.created_at,
-        // Map schema fields back to app format
         notes: data.notes,
-        amount: data.amount,
-        duration: data.duration_minutes,
-        location: data.location,
-        pottyType: data.potty_type,
+        ...(data.details || {})
       }
 
       setActivities(prev => [formattedActivity, ...prev])
@@ -140,10 +122,11 @@ export const useActivities = (activeDogId, user) => {
     try {
       setError(null)
       
-      // Separate details from metadata
-      const { type, ...details } = updates
+      const { type, notes, timestamp, ...details } = updates
       const updateData = {
         ...(type && { type }),
+        ...(notes !== undefined && { notes }),
+        ...(timestamp && { timestamp: new Date(timestamp).toISOString() }),
         details: {
           ...activities.find(a => a.id === activityId)?.details,
           ...details
@@ -154,13 +137,7 @@ export const useActivities = (activeDogId, user) => {
         .from('puppy_entries')
         .update(updateData)
         .eq('id', activityId)
-        .select(`
-          *,
-          user_profiles (
-            display_name,
-            avatar_url
-          )
-        `)
+        .select('*')
         .single()
 
       if (error) throw error
@@ -170,11 +147,11 @@ export const useActivities = (activeDogId, user) => {
         type: data.type,
         petId: data.puppy_id,
         userId: data.user_id,
-        caregiverName: data.user_profiles?.display_name || 'Unknown User',
-        caregiverAvatar: data.user_profiles?.avatar_url,
-        timestamp: data.created_at,
+        caregiverName: userIdToName.get(data.user_id) || 'Unknown User',
+        caregiverAvatar: undefined,
+        timestamp: data.timestamp || data.created_at,
         createdAt: data.created_at,
-        ...data.details
+        ...(data.details || {})
       }
 
       setActivities(prev => prev.map(activity => 
@@ -208,30 +185,31 @@ export const useActivities = (activeDogId, user) => {
 
   // Helper functions
   const getTodayActivities = () => {
-    const today = new Date().toDateString()
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000
     return activities.filter(activity => {
-      const activityDate = new Date(activity.timestamp).toDateString()
-      return activityDate === today
+      const ts = new Date(activity.timestamp).getTime()
+      return !Number.isNaN(ts) && ts >= oneDayAgo
     })
   }
 
   const getActivitiesByType = (type) => {
-    return activities.filter(activity => activity.type === type)
+    return getTodayActivities().filter(activity => activity.type === type)
   }
 
   const getLastActivityTime = (type) => {
     const typeActivities = activities.filter(a => a.type === type)
     if (typeActivities.length === 0) return null
-    return new Date(typeActivities[0].timestamp) // Already sorted by newest first
+    return new Date(typeActivities[0].timestamp)
   }
 
   const getStats = () => {
-    const todayActivities = getTodayActivities()
+    const lastDay = getTodayActivities()
     return {
-      meals: todayActivities.filter(a => a.type === 'meal').length,
-      potty: todayActivities.filter(a => a.type === 'potty').length,
-      walks: todayActivities.filter(a => a.type === 'walk').length,
-      medications: todayActivities.filter(a => a.type === 'medicine').length,
+      meals: lastDay.filter(a => a.type === 'meal').length,
+      potty: lastDay.filter(a => a.type === 'potty').length,
+      walks: lastDay.filter(a => a.type === 'walk').length,
+      play: lastDay.filter(a => a.type === 'play').length,
+      sleep: lastDay.filter(a => a.type === 'sleep').length,
     }
   }
 

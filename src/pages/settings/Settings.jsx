@@ -84,11 +84,12 @@ const Settings = () => {
     { id: 'profile', label: 'Profile', icon: 'user' },
     { id: 'household', label: 'Household', icon: 'home' },
     { id: 'members', label: 'Members', icon: 'users' },
-    { id: 'dogs', label: 'Dogs', icon: 'dog' },
+    { id: 'dogs', label: 'Dogs', icon: 'logo' },
     { id: 'preferences', label: 'Preferences', icon: 'settings' }
   ]
 
-  const TabContent = () => {
+  // Render tab content as a function (not a nested component) to avoid remounts that can steal focus
+  const renderTabContent = () => {
     switch (activeTab) {
       case 'profile':
         return (
@@ -131,7 +132,26 @@ const Settings = () => {
 
               <div>
                 <label className="block text-sm font-medium mb-2">Phone</label>
-                <p className="text-muted-foreground">{user?.phone || 'Not provided'}</p>
+                {isEditing ? (
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    placeholder="+15551234567"
+                    pattern="^\+[1-9]\d{1,14}$"
+                    title="Enter a valid phone in E.164 format, e.g., +15551234567"
+                    value={profileForm.phone}
+                    onChange={(e) => setProfileForm(prev => ({
+                      ...prev,
+                      phone: e.target.value
+                    }))}
+                    className="input w-full"
+                  />
+                ) : (
+                  <p className="text-muted-foreground">{profile?.phone || 'Not provided'}</p>
+                )}
+                {isEditing && (
+                  <p className="text-xs text-muted-foreground mt-1">Format: +[country][number], e.g., +15551234567</p>
+                )}
               </div>
 
               {isEditing && (
@@ -507,7 +527,7 @@ const Settings = () => {
           {/* Content */}
           <div className="flex-1 min-w-0">
             <div className="glass-card">
-              <TabContent />
+              {renderTabContent()}
             </div>
           </div>
         </div>
