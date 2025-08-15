@@ -9,22 +9,42 @@ const QuickLog = ({ type, onClose }) => {
   const { user } = useAuth()
   const [notes, setNotes] = useState('')
   const [amount, setAmount] = useState('')
+  const [customAmount, setCustomAmount] = useState('')
   const [duration, setDuration] = useState('')
-  const [location, setLocation] = useState('')
   const [timestamp, setTimestamp] = useState(new Date().toISOString().slice(0, 16))
+  const [energy, setEnergy] = useState(3)
+  const [vibe, setVibe] = useState('mid')
+  const [pottyPee, setPottyPee] = useState(false)
+  const [pottyPoop, setPottyPoop] = useState(false)
 
   const handleSubmit = (e) => {
     e.preventDefault()
     
+    const resolvedAmount = type === 'meal'
+      ? (amount === 'custom' ? customAmount : amount)
+      : undefined
+
+    const pottyType = type === 'potty'
+      ? (pottyPee && pottyPoop
+          ? 'both'
+          : pottyPee
+            ? 'pee'
+            : pottyPoop
+              ? 'poop'
+              : undefined)
+      : undefined
+
     const activity = {
       type,
       petId: activePet.id,
-      caregiverId: user?.id || 'default',
+      userId: user?.id,
       timestamp,
       notes,
-      ...(amount && { amount }),
-      ...(duration && { duration: parseInt(duration) }),
-      ...(location && { location }),
+      ...(type === 'meal' && resolvedAmount && { amount: resolvedAmount }),
+      ...(['walk', 'play', 'sleep'].includes(type) && duration && { duration: parseInt(duration) }),
+      ...(type === 'potty' && pottyType && { pottyType }),
+      energy,
+      vibe,
     }
     
     addActivity(activity)
@@ -42,13 +62,13 @@ const QuickLog = ({ type, onClose }) => {
       title: 'Log Walk',
       icon: 'walk',
       color: 'from-green-400 to-green-600',
-      fields: ['duration', 'location', 'notes'],
+      fields: ['duration', 'notes'],
     },
     potty: {
       title: 'Log Potty Break',
       icon: 'potty',
       color: 'from-blue-400 to-blue-600',
-      fields: ['location', 'notes'],
+      fields: ['notes'],
     },
     sleep: {
       title: 'Log Sleep',
@@ -56,6 +76,18 @@ const QuickLog = ({ type, onClose }) => {
       color: 'from-purple-400 to-purple-600',
       fields: ['duration', 'notes'],
     },
+    play: {
+      title: 'Log Play',
+      icon: 'play',
+      color: 'from-pink-400 to-pink-600',
+      fields: ['duration', 'notes'],
+    },
+    grooming: {
+      title: 'Log Grooming',
+      icon: 'grooming',
+      color: 'from-teal-400 to-teal-600',
+      fields: ['notes'],
+    }
   }
 
   const config = typeConfig[type] || typeConfig.meal
@@ -113,17 +145,41 @@ const QuickLog = ({ type, onClose }) => {
             {config.fields.includes('amount') && (
               <div>
                 <label className="block text-sm font-medium mb-2">Amount</label>
-                <input
-                  type="text"
+                <select
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  placeholder="e.g., 1 cup, 200g"
                   className="input w-full"
-                />
+                >
+                  <option value="">Select amount</option>
+                  <option value="1/4 cup">1/4 cup</option>
+                  <option value="1/2 cup">1/2 cup</option>
+                  <option value="3/4 cup">3/4 cup</option>
+                  <option value="1 cup">1 cup</option>
+                  <option value="1 1/4 cups">1 1/4 cups</option>
+                  <option value="1 1/2 cups">1 1/2 cups</option>
+                  <option value="2 cups">2 cups</option>
+                  <option value="50 g">50 g</option>
+                  <option value="100 g">100 g</option>
+                  <option value="150 g">150 g</option>
+                  <option value="200 g">200 g</option>
+                  <option value="small">Small</option>
+                  <option value="medium">Medium</option>
+                  <option value="large">Large</option>
+                  <option value="custom">Custom...</option>
+                </select>
+                {amount === 'custom' && (
+                  <input
+                    type="text"
+                    value={customAmount}
+                    onChange={(e) => setCustomAmount(e.target.value)}
+                    placeholder="e.g., 3/4 cup or 85 g"
+                    className="input w-full mt-2"
+                  />
+                )}
               </div>
             )}
 
-            {/* Duration field (for walks, sleep) */}
+            {/* Duration field (for walks, sleep, play) */}
             {config.fields.includes('duration') && (
               <div>
                 <label className="block text-sm font-medium mb-2">Duration (minutes)</label>
@@ -138,17 +194,28 @@ const QuickLog = ({ type, onClose }) => {
               </div>
             )}
 
-            {/* Location field */}
-            {config.fields.includes('location') && (
+            {/* Potty type checkboxes */}
+            {type === 'potty' && (
               <div>
-                <label className="block text-sm font-medium mb-2">Location</label>
-                <input
-                  type="text"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="e.g., Backyard, Park"
-                  className="input w-full"
-                />
+                <label className="block text-sm font-medium mb-2">What happened?</label>
+                <div className="flex items-center space-x-4">
+                  <label className="inline-flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={pottyPee}
+                      onChange={(e) => setPottyPee(e.target.checked)}
+                    />
+                    <span>Pee</span>
+                  </label>
+                  <label className="inline-flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={pottyPoop}
+                      onChange={(e) => setPottyPoop(e.target.checked)}
+                    />
+                    <span>Poop</span>
+                  </label>
+                </div>
               </div>
             )}
 
@@ -164,6 +231,48 @@ const QuickLog = ({ type, onClose }) => {
                 />
               </div>
             )}
+
+            {/* Energy rating (1-5) */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Energy</label>
+              <div className="flex space-x-2">
+                {[1,2,3,4,5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setEnergy(n)}
+                    className={`flex-1 py-2 rounded-lg border-2 transition-all ${
+                      energy === n ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Vibe selector */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Vibe</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { key: 'low', label: 'Low vibe' },
+                  { key: 'mid', label: 'Mid vibe' },
+                  { key: 'celebratory', label: 'Celebratory vibe' },
+                ].map(v => (
+                  <button
+                    key={v.key}
+                    type="button"
+                    onClick={() => setVibe(v.key)}
+                    className={`py-2 px-3 rounded-lg border-2 transition-all ${
+                      vibe === v.key ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* Actions */}
             <div className="flex space-x-3 pt-4">

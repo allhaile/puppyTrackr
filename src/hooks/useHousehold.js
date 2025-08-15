@@ -1,18 +1,30 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
 export const useHousehold = (user) => {
-  const [household, setHousehold] = useState(null)
+  const [households, setHouseholds] = useState([]) // [{id, name, invite_code, owner_id, role, joined_at}]
+  const [household, setHousehold] = useState(null) // active
   const [members, setMembers] = useState([])
   const [dogs, setDogs] = useState([])
   const [activeDogId, setActiveDogId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  // Helper to generate 6-char invite codes like ABC123
+  const generateInviteCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    let code = ''
+    for (let i = 0; i < 6; i++) {
+      code += chars[Math.floor(Math.random() * chars.length)]
+    }
+    return code
+  }
+
   useEffect(() => {
     if (user) {
       fetchHouseholdData()
     } else {
+      setHouseholds([])
       setHousehold(null)
       setMembers([])
       setDogs([])
@@ -21,255 +33,155 @@ export const useHousehold = (user) => {
     }
   }, [user])
 
-  const createHouseholdForUser = async () => {
-    try {
-      console.log('Creating household for user:', user?.id)
-      
-      // Generate a household name based on user profile
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('display_name, email')
-        .eq('id', user.id)
-        .single()
-      
-      const householdName = profile?.display_name 
-        ? `${profile.display_name}'s Household`
-        : profile?.email 
-        ? `${profile.email.split('@')[0]}'s Household`
-        : 'My Household'
-      
-      // Create the household
-      const { data: household, error: householdError } = await supabase
-        .from('households')
-        .insert([{
-          name: householdName,
-          created_by: user.id
-        }])
-        .select()
-        .single()
-      
-      if (householdError) {
-        console.error('Error creating household:', householdError)
-        throw householdError
-      }
-      
-      console.log('Created household:', household)
-      
-      // Add user as owner of the household
-      const { error: memberError } = await supabase
-        .from('household_members')
-        .insert([{
-          household_id: household.id,
-          user_id: user.id,
-          role: 'owner'
-        }])
-      
-      if (memberError) {
-        console.error('Error adding user to household:', memberError)
-        throw memberError
-      }
-      
-      console.log('Added user as household owner')
-      return household.id
-      
-    } catch (error) {
-      console.error('Failed to create household:', error)
-      throw error
+  const fetchMembersAndDogs = useCallback(async (householdId) => {
+    if (!householdId) {
+      setMembers([])
+      setDogs([])
+      setActiveDogId(null)
+      return
     }
-  }
+
+    // Members via RPC (avoids recursive RLS)
+    const { data: membersData, error: membersError } = await supabase.rpc('get_household_members', {
+      p_household_id: householdId
+    })
+
+    if (membersError) throw membersError
+
+    const membersWithProfiles = (membersData || []).map((member) => ({
+      id: member.user_id,
+      role: member.role,
+      joinedAt: member.joined_at,
+      display_name: member.display_name || 'Unknown User',
+      avatar_url: undefined,
+      email: member.email
+    }))
+
+    setMembers(membersWithProfiles)
+
+    // Dogs
+    const { data: dogsData, error: dogsError } = await supabase
+      .from('puppies')
+      .select('*')
+      .eq('household_id', householdId)
+      .order('created_at', { ascending: true })
+
+    if (dogsError) throw dogsError
+    setDogs(dogsData)
+
+    if (dogsData.length > 0 && !activeDogId) {
+      setActiveDogId(dogsData[0].id)
+    } else if (dogsData.length === 0) {
+      setActiveDogId(null)
+    }
+  }, [activeDogId])
 
   const fetchHouseholdData = async () => {
     try {
       setLoading(true)
       setError(null)
-      console.log('Fetching household data for user:', user?.id)
       
-      // Add a timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Household fetch timeout')), 10000)
-      )
-      
-      // Try the complex query first, with fallback to simple queries
-      let householdData, householdError
-      
-      try {
-        // Get user's household using foreign key relationship
-        const householdQueryPromise = supabase
-          .from('household_members')
-          .select(`
-            household_id,
-            role,
-            households (
-              id,
-              name,
-              invite_code,
-              created_by
-            )
-          `)
-          .eq('user_id', user.id)
-          .single()
+      // Fetch all memberships with household details
+      const { data, error: membershipsError } = await supabase
+        .from('household_members')
+        .select(`
+          household_id,
+          role,
+          joined_at,
+          households:household_id (
+            id,
+            name,
+            invite_code,
+            owner_id
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('joined_at', { ascending: false })
 
-        const result = await Promise.race([householdQueryPromise, timeoutPromise])
-        householdData = result.data
-        householdError = result.error
-      } catch (relationshipError) {
-        console.log('Foreign key relationship failed, trying simple query:', relationshipError)
-        
-        // Fallback: Get household membership first, then household details separately
-        const { data: membershipData, error: membershipError } = await Promise.race([
-          supabase
-            .from('household_members')
-            .select('household_id, role')
-            .eq('user_id', user.id)
-            .single(),
-          timeoutPromise
-        ])
-        
-        if (membershipError) {
-          householdError = membershipError
-        } else {
-          // Get household details separately
-          const { data: householdDetails, error: householdDetailsError } = await Promise.race([
-            supabase
-              .from('households')
-              .select('id, name, invite_code, created_by')
-              .eq('id', membershipData.household_id)
-              .single(),
-            timeoutPromise
-          ])
-          
-          if (householdDetailsError) {
-            householdError = householdDetailsError
-          } else {
-            // Combine the data manually
-            householdData = {
-              household_id: membershipData.household_id,
-              role: membershipData.role,
-              households: householdDetails
-            }
-          }
-        }
+      if (membershipsError) throw membershipsError
+
+      if (!data || data.length === 0) {
+        // No memberships
+        setHouseholds([])
+        setHousehold(null)
+        setMembers([])
+        setDogs([])
+        setActiveDogId(null)
+        return
       }
 
-      if (householdError) {
-        console.log('Household error:', householdError)
-        // If user doesn't have a household yet, this is expected
-        if (householdError.code === 'PGRST116') {
-          console.log('User has no household - creating one automatically')
-          // Try to create a household automatically
-          try {
-            const householdId = await createHouseholdForUser()
-            if (householdId) {
-              // Retry fetching household data after creation
-              await fetchHouseholdData()
-              return
-            }
-          } catch (createError) {
-            console.error('Failed to create household:', createError)
-            setError('Failed to set up your household. Please try refreshing the page.')
-          }
-          
-          setHousehold(null)
-          setMembers([])
-          setDogs([])
-          setActiveDogId(null)
-          setLoading(false)
-          return
-        }
-        throw householdError
+      // Normalize list, filtering out any null household rows (RLS could hide them)
+      const normalized = data
+        .filter(m => m.households)
+        .map(m => ({
+          id: m.households.id,
+          name: m.households.name,
+          invite_code: m.households.invite_code,
+          owner_id: m.households.owner_id,
+          role: m.role,
+          joined_at: m.joined_at,
+        }))
+
+      if (normalized.length === 0) {
+        // All rows hidden by RLS; leave a helpful error and reset state
+        setError('Unable to load household details due to access policies')
+        setHouseholds([])
+        setHousehold(null)
+        setMembers([])
+        setDogs([])
+        setActiveDogId(null)
+        return
       }
 
-      console.log('Household data:', householdData)
-      const householdInfo = householdData.households
-      setHousehold({
-        ...householdInfo,
-        userRole: householdData.role
-      })
+      setHouseholds(normalized)
 
-      // Get household members with simple query (no foreign key relationship)
-      const { data: membersData, error: membersError } = await Promise.race([
-        supabase
-          .from('household_members')
-          .select('user_id, role, joined_at')
-          .eq('household_id', householdInfo.id),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Members fetch timeout')), 10000)
-        )
-      ])
-
-      if (membersError) {
-        console.log('Members error:', membersError)
-        throw membersError
+      // Choose active (keep existing if still present), else most recent
+      let nextActive = household && normalized.find(h => h.id === household.id)
+      if (!nextActive) {
+        nextActive = normalized[0]
       }
+      setHousehold(nextActive)
 
-      // Get user profiles separately for each member
-      const membersWithProfiles = await Promise.all(
-        membersData.map(async (member) => {
-          const { data: profile } = await supabase
-            .from('user_profiles')
-            .select('display_name, avatar_url, email')
-            .eq('id', member.user_id)
-            .single()
-          
-          return {
-            id: member.user_id,
-            role: member.role,
-            joinedAt: member.joined_at,
-            display_name: profile?.display_name || 'Unknown User',
-            avatar_url: profile?.avatar_url,
-            email: profile?.email
-          }
-        })
-      )
-
-      console.log('Members data:', membersWithProfiles)
-      setMembers(membersWithProfiles)
-
-      // Get household dogs with timeout
-      const dogsQueryPromise = supabase
-        .from('puppies')
-        .select('*')
-        .eq('household_id', householdInfo.id)
-        .order('created_at', { ascending: true })
-
-      const { data: dogsData, error: dogsError } = await Promise.race([
-        dogsQueryPromise,
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Dogs fetch timeout')), 10000)
-        )
-      ])
-
-      if (dogsError) {
-        console.log('Dogs error:', dogsError)
-        throw dogsError
-      }
-
-      console.log('Dogs data:', dogsData)
-      setDogs(dogsData)
-      
-      // Set active dog to first one if none selected
-      if (dogsData.length > 0 && !activeDogId) {
-        setActiveDogId(dogsData[0].id)
-      }
-
-    } catch (error) {
-      console.error('Error fetching household data:', error)
-      setError(error.message)
+      // Fetch members and dogs for active
+      await fetchMembersAndDogs(nextActive.id)
+    } catch (e) {
+      console.error('Error fetching household data:', e)
+      setError(e.message)
+      setHouseholds([])
+      setHousehold(null)
+      setMembers([])
+      setDogs([])
+      setActiveDogId(null)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const setActiveHouseholdId = async (householdId) => {
+    const found = households.find(h => h.id === householdId)
+    setHousehold(found || null)
+    try {
+      await fetchMembersAndDogs(found?.id)
+    } catch (e) {
+      setError(e.message)
     }
   }
 
   const addDog = async (dogData) => {
     try {
       setError(null)
+      if (!household?.id) throw new Error('No active household')
+
+      // Insert allowed columns
+      const insertData = {
+        name: dogData?.name || 'New Pup',
+        avatar: dogData?.avatar || null,
+        household_id: household.id
+      }
+
       const { data, error } = await supabase
         .from('puppies')
-        .insert([{
-          ...dogData,
-          household_id: household.id,
-          created_by: user.id
-        }])
+        .insert([insertData])
         .select()
         .single()
 
@@ -277,24 +189,33 @@ export const useHousehold = (user) => {
 
       setDogs(prev => [...prev, data])
       
-      // Set as active dog if it's the first one
       if (dogs.length === 0) {
         setActiveDogId(data.id)
       }
 
-      return { success: true, dog: data }
+      return data
     } catch (error) {
       setError(error.message)
-      return { success: false, error: error.message }
+      return null
     }
   }
 
   const updateDog = async (dogId, updates) => {
     try {
       setError(null)
+
+      // Only update valid columns
+      const updateData = {}
+      if (typeof updates?.name === 'string') {
+        updateData.name = updates.name
+      }
+      if (typeof updates?.avatar === 'string') {
+        updateData.avatar = updates.avatar
+      }
+
       const { data, error } = await supabase
         .from('puppies')
-        .update(updates)
+        .update(updateData)
         .eq('id', dogId)
         .select()
         .single()
@@ -324,7 +245,6 @@ export const useHousehold = (user) => {
 
       setDogs(prev => prev.filter(dog => dog.id !== dogId))
       
-      // If deleted dog was active, switch to another
       if (activeDogId === dogId) {
         const remainingDogs = dogs.filter(dog => dog.id !== dogId)
         setActiveDogId(remainingDogs.length > 0 ? remainingDogs[0].id : null)
@@ -340,16 +260,19 @@ export const useHousehold = (user) => {
   const generateNewInviteCode = async () => {
     try {
       setError(null)
+      if (!household?.id) throw new Error('No active household')
+      const newCode = generateInviteCode()
       const { data, error } = await supabase
         .from('households')
-        .update({ invite_code: crypto.randomUUID().slice(0, 8) })
+        .update({ invite_code: newCode })
         .eq('id', household.id)
         .select('invite_code')
         .single()
 
       if (error) throw error
 
-      setHousehold(prev => ({ ...prev, invite_code: data.invite_code }))
+      setHousehold(prev => prev ? ({ ...prev, invite_code: data.invite_code }) : prev)
+      setHouseholds(prev => prev.map(h => h.id === household.id ? { ...h, invite_code: data.invite_code } : h))
       return { success: true, inviteCode: data.invite_code }
     } catch (error) {
       setError(error.message)
@@ -360,6 +283,7 @@ export const useHousehold = (user) => {
   const removeMember = async (memberId) => {
     try {
       setError(null)
+      if (!household?.id) throw new Error('No active household')
       const { error } = await supabase
         .from('household_members')
         .delete()
@@ -379,6 +303,7 @@ export const useHousehold = (user) => {
   const updateHouseholdName = async (newName) => {
     try {
       setError(null)
+      if (!household?.id) throw new Error('No active household')
       const { error } = await supabase
         .from('households')
         .update({ name: newName })
@@ -386,7 +311,49 @@ export const useHousehold = (user) => {
 
       if (error) throw error
 
-      setHousehold(prev => ({ ...prev, name: newName }))
+      setHousehold(prev => prev ? ({ ...prev, name: newName }) : prev)
+      setHouseholds(prev => prev.map(h => h.id === household.id ? { ...h, name: newName } : h))
+      return { success: true }
+    } catch (error) {
+      setError(error.message)
+      return { success: false, error: error.message }
+    }
+  }
+
+  const updateMemberRole = async (memberId, role) => {
+    try {
+      setError(null)
+      if (!household?.id) throw new Error('No active household')
+      const { error } = await supabase.rpc('set_member_role', {
+        target_household_id: household.id,
+        target_user_id: memberId,
+        new_role: role
+      })
+      if (error) throw error
+      setMembers(prev => prev.map(m => m.id === memberId ? { ...m, role } : m))
+      return { success: true }
+    } catch (error) {
+      setError(error.message)
+      return { success: false, error: error.message }
+    }
+  }
+
+  const leaveHousehold = async () => {
+    try {
+      setError(null)
+      if (!household?.id || !user?.id) throw new Error('Missing household or user')
+
+      const { error: leaveError } = await supabase
+        .from('household_members')
+        .delete()
+        .eq('household_id', household.id)
+        .eq('user_id', user.id)
+
+      if (leaveError) throw leaveError
+
+      // Refresh memberships
+      await fetchHouseholdData()
+
       return { success: true }
     } catch (error) {
       setError(error.message)
@@ -397,20 +364,33 @@ export const useHousehold = (user) => {
   const activeDog = dogs.find(dog => dog.id === activeDogId)
 
   return {
+    // Memberships
+    households,
     household,
+    setActiveHouseholdId,
+
+    // Members & dogs
     members,
     dogs,
     activeDog,
     activeDogId,
     setActiveDogId,
+
+    // Status
     loading,
     error,
+
+    // Mutations
     addDog,
     updateDog,
     deleteDog,
     generateNewInviteCode,
     removeMember,
     updateHouseholdName,
+    updateMemberRole,
+    leaveHousehold,
+
+    // Utils
     refetch: fetchHouseholdData
   }
 } 

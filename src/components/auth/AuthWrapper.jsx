@@ -3,12 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '../../contexts/AuthContext'
 import LoadingScreen from '../ui/LoadingScreen'
 import Icon from '../ui/Icon'
+import { useNavigate } from 'react-router-dom'
+import Logo from '../ui/Logo'
 
 const AuthWrapper = ({ children }) => {
-  const { isAuthenticated, loading, signInWithEmail, signInWithPhone, verifyOtp, error } = useAuth()
-  const [authStep, setAuthStep] = useState('method') // 'method', 'email', 'phone', 'verify'
+  const { isAuthenticated, loading, signInWithEmail, verifyOtp, error, households } = useAuth()
+  const navigate = useNavigate()
+  const [authStep, setAuthStep] = useState('method') // 'method', 'email', 'verify'
   const [contactInfo, setContactInfo] = useState('')
-  const [authMethod, setAuthMethod] = useState('')
   const [localError, setLocalError] = useState('')
   
   // Use ref to prevent re-renders - store current value without triggering re-renders
@@ -16,6 +18,37 @@ const AuthWrapper = ({ children }) => {
   const contactInfoRef = useRef('')
   const otpRef = useRef('')
   const containerRef = useRef(null)
+
+  // After sign-in, if user has no memberships, route to setup. If we have a pending invite, go to it first.
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      const pendingCode = localStorage.getItem('pending_invite_code')
+      if (pendingCode) {
+        navigate(`/join/${pendingCode}`, { replace: true })
+        return
+      }
+
+      const path = window.location.pathname
+      const onInvite = path.startsWith('/join/')
+      const onSetup = path.startsWith('/household/setup')
+      if (!onInvite && !onSetup && (!households || households.length === 0)) {
+        navigate('/household/setup', { replace: true })
+      }
+    }
+  }, [loading, isAuthenticated, households, navigate])
+
+  // Capture invite code while unauthenticated so we can restore after login
+  useEffect(() => {
+    if (!isAuthenticated) {
+      const path = window.location.pathname
+      if (path.startsWith('/join/')) {
+        const code = path.split('/').pop()
+        if (code) {
+          localStorage.setItem('pending_invite_code', code)
+        }
+      }
+    }
+  }, [isAuthenticated])
 
   // Prevent viewport jumping on mobile
   useEffect(() => {
@@ -54,7 +87,6 @@ const AuthWrapper = ({ children }) => {
   const handleInputChange = useCallback((e) => {
     // Store value in ref without triggering re-render
     contactInfoRef.current = e.target.value
-    // Removed setHasInput to eliminate re-renders
   }, [])
 
   const handleOtpInputChange = useCallback((e) => {
@@ -63,73 +95,50 @@ const AuthWrapper = ({ children }) => {
   }, [])
 
   const handleSendOTPClick = useCallback(async () => {
-    // Get current value from ref and update state only when needed
     const currentValue = contactInfoRef.current.trim()
-    
-    // Simple validation - show error if empty
     if (!currentValue) {
-      setLocalError('Please enter your ' + (authMethod === 'email' ? 'email' : 'phone number'))
+      setLocalError('Please enter your email')
       return
     }
-    
-    setContactInfo(currentValue) // This will trigger ONE re-render
-    
-    setLocalError('') // Clear local error
-    let result
-    if (authMethod === 'email') {
-      result = await signInWithEmail(currentValue)
-    } else {
-      result = await signInWithPhone(currentValue)
-    }
-
+    setContactInfo(currentValue)
+    setLocalError('')
+    const result = await signInWithEmail(currentValue)
     if (result.success) {
       setAuthStep('verify')
     } else {
       setLocalError(result.error || 'An error occurred')
     }
-  }, [authMethod, signInWithEmail, signInWithPhone])
+  }, [signInWithEmail])
 
   const handleSendOTP = useCallback(async () => {
-    setLocalError('') // Clear local error
-    let result
-    if (authMethod === 'email') {
-      result = await signInWithEmail(contactInfo)
-    } else {
-      result = await signInWithPhone(contactInfo)
-    }
-
+    setLocalError('')
+    const result = await signInWithEmail(contactInfo)
     if (result.success) {
       setAuthStep('verify')
     } else {
       setLocalError(result.error || 'An error occurred')
     }
-  }, [authMethod, contactInfo, signInWithEmail, signInWithPhone])
+  }, [contactInfo, signInWithEmail])
 
   const handleVerifyOTP = useCallback(async () => {
     const currentOtp = otpRef.current.trim()
-    
-    // Simple validation
     if (currentOtp.length < 6) {
       setLocalError('Please enter the complete 6-digit code')
       return
     }
-    
-    setLocalError('') // Clear local error
+    setLocalError('')
     const result = await verifyOtp({
-      [authMethod === 'email' ? 'email' : 'phone']: contactInfo,
+      email: contactInfo,
       token: currentOtp,
-      type: authMethod === 'email' ? 'email' : 'sms'
+      type: 'email'
     })
-
-    if (result.success) {
-      // User will be redirected automatically due to auth state change
-    } else {
+    if (!result.success) {
       setLocalError(result.error || 'Verification failed')
     }
-  }, [authMethod, contactInfo, verifyOtp])
+  }, [contactInfo, verifyOtp])
 
   // Early returns must come AFTER all hooks
-  if (loading) {
+  if (loading && !isAuthenticated) {
     return <LoadingScreen message="Checking authentication..." />
   }
 
@@ -153,24 +162,12 @@ const AuthWrapper = ({ children }) => {
       <div className="space-y-3">
         <button
           onClick={() => {
-            setAuthMethod('email')
             setAuthStep('email')
           }}
           className="w-full flex items-center justify-center space-x-3 p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
         >
           <Icon name="mail" size={20} />
           <span>Continue with Email</span>
-        </button>
-
-        <button
-          onClick={() => {
-            setAuthMethod('phone')
-            setAuthStep('phone')
-          }}
-          className="w-full flex items-center justify-center space-x-3 p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
-        >
-          <Icon name="phone" size={20} />
-          <span>Continue with Phone</span>
         </button>
       </div>
 
@@ -189,7 +186,7 @@ const AuthWrapper = ({ children }) => {
     >
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-bold">
-          Enter your {authMethod === 'email' ? 'email' : 'phone number'}
+          Enter your email
         </h2>
         <p className="text-muted-foreground">
           We'll send you a verification code to sign in
@@ -199,15 +196,15 @@ const AuthWrapper = ({ children }) => {
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium mb-2">
-            {authMethod === 'email' ? 'Email Address' : 'Phone Number'}
+            Email Address
           </label>
           <input
             ref={inputRef}
-            key={`contact-input-${authMethod}`}
-            type={authMethod === 'email' ? 'email' : 'tel'}
+            key={`contact-input-email`}
+            type={'email'}
             defaultValue=""
             onChange={handleInputChange}
-            placeholder={authMethod === 'email' ? 'your@email.com' : '+1 (555) 123-4567'}
+            placeholder={'your@email.com'}
             className="input w-full"
             style={{ fontSize: '16px' }}
             autoComplete="off"
@@ -300,13 +297,6 @@ const AuthWrapper = ({ children }) => {
           >
             Resend Code
           </button>
-
-          <button
-            onClick={() => setAuthStep(authMethod)}
-            className="w-full btn-ghost text-sm"
-          >
-            Change {authMethod === 'email' ? 'Email' : 'Phone Number'}
-          </button>
         </div>
       </div>
     </motion.div>
@@ -317,7 +307,6 @@ const AuthWrapper = ({ children }) => {
       case 'method':
         return <AuthMethodSelection />
       case 'email':
-      case 'phone':
         return <ContactForm />
       case 'verify':
         return <VerificationForm />
@@ -355,8 +344,8 @@ const AuthWrapper = ({ children }) => {
         >
           {/* Logo */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center mb-4">
-              <Icon name="pet" className="text-white" size={32} />
+            <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-4">
+              <Logo size={64} />
             </div>
             <h1 className="text-xl font-bold">PuppyTrackr</h1>
           </div>

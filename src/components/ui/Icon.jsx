@@ -1,4 +1,5 @@
 import React from 'react'
+import Logo from './Logo'
 
 // Central icon component using SVG placeholders
 const icons = {
@@ -26,10 +27,14 @@ const icons = {
       <path d="M8 14s1.5 2 4 2 4-2 4-2" />
     </svg>
   ),
+  logo: (props) => {
+    const size = props.width || 24
+    return <Logo size={size} className={props.className || ''} />
+  },
   settings: (props) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 1v6m0 6v6m4.22-13.22l4.24 4.24M1.54 16.46l4.24 4.24M22.46 7.54l-4.24 4.24M7.78 1.54L3.54 5.78" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z" />
+      <path d="M19.4 12a7.4 7.4 0 0 0-.07-1l2.12-1.65a1 1 0 0 0 .24-1.31l-2-3.46a1 1 0 0 0-1.25-.44l-2.49 1a7.5 7.5 0 0 0-1.73-1l-.38-2.65A1 1 0 0 0 12.9 0h-3.8a1 1 0 0 0-1 .84l-.38 2.65a7.5 7.5 0 0 0-1.73 1l-2.49-1a1 1 0 0 0-1.25.44l-2 3.46a1 1 0 0 0 .24 1.31L2.67 11a7.4 7.4 0 0 0 0 2l-2.12 1.65a1 1 0 0 0-.24 1.31l2 3.46a1 1 0 0 0 1.25.44l2.49-1c.54.4 1.12.73 1.73 1l.38 2.65a1 1 0 0 0 1 .84h3.8a1 1 0 0 0 1-.84l.38-2.65c.61-.27 1.19-.6 1.73-1l2.49 1a1 1 0 0 0 1.25-.44l2-3.46a1 1 0 0 0-.24-1.31L19.33 13c.05-.33.07-.66.07-1z" />
     </svg>
   ),
   care: (props) => (
@@ -71,6 +76,13 @@ const icons = {
       <path d="M12 9v6" />
     </svg>
   ),
+  // Alias to support activity.type = 'grooming'
+  grooming: (props) => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+      <rect x="6" y="4" width="12" height="16" rx="2" />
+      <path d="M12 9v6" />
+    </svg>
+  ),
   vet: (props) => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
       <path d="M12 2v20M2 12h20" />
@@ -92,9 +104,9 @@ const icons = {
     </svg>
   ),
   sun: (props) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <circle cx="12" cy="12" r="5" />
-      <path d="M12 1v6m0 6v6m4.22-13.22l4.24 4.24M1.54 16.46l4.24 4.24M22.46 7.54l-4.24 4.24M7.78 1.54L3.54 5.78" />
+      <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
     </svg>
   ),
   bell: (props) => (
@@ -189,8 +201,12 @@ const icons = {
     </svg>
   ),
   dog: (props) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
-      <path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <circle cx="8.5" cy="8.5" r="1.8" />
+      <circle cx="12" cy="7" r="1.8" />
+      <circle cx="15.5" cy="8.5" r="1.8" />
+      <circle cx="10.5" cy="11" r="1.8" />
+      <path d="M12 14c-3 0-5 2-5 4 0 2 10 2 10 0 0-2-2-4-5-4z" />
     </svg>
   ),
   alertCircle: (props) => (

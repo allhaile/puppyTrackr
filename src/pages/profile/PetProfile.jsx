@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { useParams, useNavigate } from 'react-router-dom'
 import { usePets } from '../../contexts/PetContext'
 import Icon from '../../components/ui/Icon'
+import { dogBreeds } from '../../lib/dogBreeds'
 
 const PetProfile = () => {
   const { petId } = useParams()
@@ -54,20 +55,23 @@ const PetProfile = () => {
     }
   }, [currentPet])
   
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     
     const petData = {
       ...formData,
       avatar: avatarEmoji,
+      name: formData.name?.trim() || 'New Pup'
     }
     
     if (isNewPet) {
-      const newPet = addPet(petData)
-      setActivePet(newPet.id)
+      const created = await addPet(petData)
+      if (created && created.id) {
+        setActivePet(created.id)
+      }
       navigate('/')
     } else if (currentPet) {
-      updatePet(currentPet.id, petData)
+      await updatePet(currentPet.id, petData)
       navigate('/')
     }
   }
@@ -171,7 +175,13 @@ const PetProfile = () => {
                   onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
                   className="input w-full"
                   placeholder="e.g., Golden Retriever"
+                  list="breed-options-profile"
                 />
+                <datalist id="breed-options-profile">
+                  {dogBreeds.map((breed) => (
+                    <option key={breed} value={breed} />
+                  ))}
+                </datalist>
               </div>
               
               <div>
@@ -243,7 +253,7 @@ const PetProfile = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-2">Vet Name</label>
+                <label className="block text sm font-medium mb-2">Vet Name</label>
                 <input
                   type="text"
                   value={formData.vetName}

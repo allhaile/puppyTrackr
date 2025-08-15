@@ -30,7 +30,10 @@ export const AuthProvider = ({ children }) => {
     updateProfile: auth.updateProfile,
     
     // Household data (for backward compatibility)
+    // Household state
+    households: household.households,
     household: household.household,
+    setActiveHouseholdId: household.setActiveHouseholdId,
     members: household.members,
     caregivers: household.members, // Alias for backward compatibility
     dogs: household.dogs,
@@ -47,6 +50,8 @@ export const AuthProvider = ({ children }) => {
     generateNewInviteCode: household.generateNewInviteCode,
     removeMember: household.removeMember,
     updateHouseholdName: household.updateHouseholdName,
+    updateMemberRole: household.updateMemberRole,
+    leaveHousehold: household.leaveHousehold,
     
     // Legacy methods for backward compatibility
     addCaregiver: (caregiver) => {
@@ -60,7 +65,9 @@ export const AuthProvider = ({ children }) => {
     login: (userData) => {
       console.warn('login is deprecated, use signInWithEmail or signInWithPhone instead')
     },
-    logout: auth.signOut
+    logout: auth.signOut,
+    // Re-fetch household/memberships
+    refetchHousehold: household.refetch
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
