@@ -320,6 +320,70 @@ export const useHousehold = (user) => {
     }
   }
 
+  const createHousehold = async (name = 'My Home') => {
+    try {
+      setError(null)
+      if (!user?.id) throw new Error('Not authenticated')
+
+      // Create household where current user is the owner
+      const { data: created, error: createError } = await supabase
+        .from('households')
+        .insert([{ name, owner_id: user.id }])
+        .select()
+        .single()
+
+      if (createError) throw createError
+
+      // Add membership explicitly (owner) - may already be added via trigger in some schemas, but safe to ensure
+      const { error: memberError } = await supabase
+        .from('household_members')
+        .insert([{ household_id: created.id, user_id: user.id, role: 'owner' }])
+      if (memberError && memberError.code !== '23505') { // ignore duplicate unique violation
+        throw memberError
+      }
+
+      await fetchHouseholdData()
+      return { success: true, household: created }
+    } catch (error) {
+      setError(error.message)
+      return { success: false, error: error.message }
+    }
+  }
+
+  const deleteHousehold = async (householdId) => {
+    try {
+      setError(null)
+      if (!user?.id) throw new Error('Not authenticated')
+      const total = households.length
+      if (total <= 1) {
+        throw new Error('You must belong to at least one household')
+      }
+
+      // Only owner can delete due to RLS policy
+      const targetId = householdId || household?.id
+      if (!targetId) throw new Error('No household selected')
+
+      const { error: delError } = await supabase
+        .from('households')
+        .delete()
+        .eq('id', targetId)
+
+      if (delError) throw delError
+
+      await fetchHouseholdData()
+
+      // If deletion removed the active one and none is set, ensure at least one exists.
+      if (households.length === 0) {
+        await createHousehold()
+      }
+
+      return { success: true }
+    } catch (error) {
+      setError(error.message)
+      return { success: false, error: error.message }
+    }
+  }
+
   const updateMemberRole = async (memberId, role) => {
     try {
       setError(null)
@@ -389,6 +453,8 @@ export const useHousehold = (user) => {
     updateHouseholdName,
     updateMemberRole,
     leaveHousehold,
+    createHousehold,
+    deleteHousehold,
 
     // Utils
     refetch: fetchHouseholdData

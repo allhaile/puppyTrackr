@@ -16,6 +16,8 @@ const Settings = () => {
     removeMember,
     updateMemberRole,
     leaveHousehold,
+    deleteHousehold,
+    setActiveHouseholdId,
     signOut 
   } = useAuth()
   
@@ -69,6 +71,26 @@ const Settings = () => {
     if (confirm('Are you sure you want to leave this household?')) {
       await leaveHousehold()
     }
+  }
+
+  const handleDeleteHousehold = async () => {
+    if (!isOwner) return
+    if (!household?.id) return
+    if (!confirm('Delete this household? This removes all dogs and entries in it.')) return
+
+    // Choose a fallback household to switch to after deletion
+    const fallback = (id) => {
+      const others = (household ? [] : []) // placeholder to satisfy linter, replaced below
+      return others
+    }
+
+    // Find another household to switch to
+    // We'll derive from useAuth.households indirectly via household + setActiveHouseholdId
+    // Simpler: just call delete and then rely on fetch + default selection
+    const result = await deleteHousehold(household.id)
+    if (!result.success) return
+    // After deletion, attempt to switch to the first available household (handled by hook on refetch)
+    // If none left (should not happen due to guard), navigate remains in settings using updated active household
   }
 
   const inviteUrl = household?.invite_code 
@@ -280,6 +302,12 @@ const Settings = () => {
                     className="btn-ghost w-full sm:w-auto"
                   >
                     Cancel
+                  </button>
+                  <button
+                    onClick={handleDeleteHousehold}
+                    className="btn-outline w-full sm:w-auto text-red-600 border-red-300 hover:bg-red-50"
+                  >
+                    Delete Household
                   </button>
                 </div>
               )}

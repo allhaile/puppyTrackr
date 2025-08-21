@@ -109,7 +109,7 @@ export const useSupabaseAuth = () => {
     }
   }
 
-  const signInWithEmail = async (email) => {
+  const signInWithEmail = async (email, options = {}) => {
     try {
       setError(null)
       console.log('Attempting email OTP auth for:', email)
@@ -118,7 +118,7 @@ export const useSupabaseAuth = () => {
       const { data, error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          shouldCreateUser: true // This will create a user if they don't exist
+          shouldCreateUser: options.createUser === true // Explicitly create only when requested
         }
       })
       
@@ -128,8 +128,7 @@ export const useSupabaseAuth = () => {
       }
       
       console.log('OTP sent successfully to:', email)
-      console.log('NOTE: If email is empty, try development codes: 123456 or 000000')
-      return { success: true, devNote: 'Check email or use dev codes: 123456 or 000000' }
+      return { success: true }
     } catch (error) {
       console.error('Auth error:', error)
       setError(error.message)
@@ -140,12 +139,6 @@ export const useSupabaseAuth = () => {
   const verifyOtp = async (params) => {
     try {
       setError(null)
-      
-      // Development bypass for specific codes
-      if (params.token === '123456' || params.token === '000000') {
-        console.log('Using development bypass code for:', params.email)
-        return { success: true }
-      }
       
       const { error } = await supabase.auth.verifyOtp(params)
       if (error) throw error
@@ -161,6 +154,12 @@ export const useSupabaseAuth = () => {
       setError(null)
       const { error } = await supabase.auth.signOut()
       if (error) throw error
+      // Clear any local volatile state
+      try {
+        localStorage.removeItem('pending_invite_code')
+        localStorage.removeItem('onboarding_completed')
+        localStorage.removeItem('household_setup_complete')
+      } catch {}
     } catch (error) {
       setError(error.message)
     }
@@ -172,6 +171,17 @@ export const useSupabaseAuth = () => {
       const payload = {}
       if (typeof updates.display_name === 'string') payload.display_name = updates.display_name
       if (typeof updates.phone === 'string' || updates.phone === null) payload.phone = updates.phone
+      if (typeof updates.first_name === 'string') payload.first_name = updates.first_name
+      if (typeof updates.last_name === 'string') payload.last_name = updates.last_name
+      if (typeof updates.username === 'string') payload.username = updates.username
+
+      // If first/last provided and display_name missing, compute a nice display name
+      if (!payload.display_name && (payload.first_name || payload.last_name)) {
+        const first = payload.first_name || ''
+        const last = payload.last_name || ''
+        const combined = `${first} ${last}`.trim()
+        if (combined) payload.display_name = combined
+      }
       const { error } = await supabase
         .from('user_profiles')
         .update(payload)

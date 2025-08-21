@@ -22,10 +22,10 @@ This isn't just about convenience - it's about **responsible pet ownership** in 
 - **No Complex Signups** - Family members join with just their email and name
 
 ### Authentication & Cloud Sync
-- **Phone Authentication** - Sign in with SMS verification codes
-- **Email Authentication** - Alternative login with email OTP
+- **Email OTP (magic link/code)** - Passwordless sign-in via Supabase
 - **Cloud Storage** - All data synced across devices via Supabase
 - **Secure Data** - Row Level Security protects your household information
+- **Owner Controls** - Owner can manage members and roles
 
 ### Core Tracking Features
 - **Mobile-First Design** - Optimized for phones and tablets
@@ -57,23 +57,42 @@ npm install
 ```
 
 3. **Set up Supabase** (Important!):
-   - Follow the detailed guide in `SUPABASE_SETUP.md`
-   - Create `.env.local` with your Supabase credentials
-   - Run the database schema in Supabase SQL editor
+   - Create a new Supabase project
+   - In Project Settings → API, copy your URL and anon key into a `.env.local` file
+   - Open the SQL editor and run the contents of `supabase-schema.sql`
+   - Confirm tables/functions exist: `households`, `household_members`, `puppies`, `puppy_entries`, and RPCs `join_household_by_invite`, `get_household_members`, `set_member_role`
 
-4. **Start the development server:**
+4. **Create `.env.local` in your project root:**
+```env
+VITE_SUPABASE_URL=https://your-project-id.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+```
+
+5. **Start the development server:**
 ```bash
 npm run dev
 ```
 
-5. **Open your browser** and visit `http://localhost:3000`
-6. **Sign up/Sign in** using phone number or email
+6. **Open your browser** and visit `http://localhost:3000`
+7. **Sign in** using your email (OTP/magic code)
+
+## Architecture
+
+- **Frontend**: React 18 + Vite, React Router 7, Framer Motion, Tailwind CSS
+- **State/Modules**:
+  - Contexts: `AuthContext` (auth + household), `PetContext` (pets + activities), `ThemeContext`
+  - Hooks: `useSupabaseAuth` (OTP auth + profile), `useHousehold` (memberships, members, dogs), `useActivities` (entries CRUD + derived stats)
+  - Light Zustand stores for legacy/auxiliary state in `src/stores/`
+- **Backend (Supabase/Postgres)**:
+  - Tables: `user_profiles`, `households`, `household_members`, `puppies`, `puppy_entries`
+  - RLS: scoped to `auth.uid()` and household memberships; explicit INSERT policies for `households`, `puppies`, and `puppy_entries`
+  - RPC/Triggers: `handle_new_user` (auto profile + household), `join_household_by_invite`, `get_household_members` (safe membership read), `set_member_role`
 
 ## How Multi-Dog Households Work
 
 ### Setting Up Your Household
 
-1. **Sign up** with your email or phone number
+1. **Sign up** with your email
 2. **Your household is automatically created** (e.g., "John's Household")
 3. **Add your first dog** using the dog selector in the header
 4. **Get your invite link** by clicking the household button
@@ -83,34 +102,14 @@ npm run dev
 1. Click the **household button** in the top-right corner
 2. **Copy your invite link** (looks like: `https://yourapp.com/join/abc123`)
 3. **Share the link** via text, email, or any messaging app
-4. Family members click the link, enter their name, and **automatically join**
+4. Family members click the link and **automatically join** after sign-in
 
 ### Using the App as a Family
 
 - **Switch between dogs** using the dog selector in the header
 - **Each person logs activities** with their own name attached
-- **Real-time sync** means everyone sees updates immediately
+- **Near real-time view** via optimistic updates; Realtime subscriptions planned for MVP
 - **All dogs' data** is accessible to all household members
-
-## Why This Matters: Responsible Collective Care
-
-### For Families
-- **Children learn responsibility** by participating in care documentation
-- **Parents coordinate** schedules and responsibilities seamlessly
-- **Grandparents and extended family** stay informed about routines
-- **Everyone contributes** to a complete picture of the dog's wellbeing
-
-### For Dog Sitters & Caregivers
-- **Maintain established routines** with complete visibility into normal patterns
-- **Document any concerns** for owners to review later
-- **Access emergency information** like vet contacts and medical history
-- **Provide detailed reports** of care provided
-
-### For Multi-Generational Homes
-- **Bridge communication gaps** between different caregivers
-- **Ensure consistency** in feeding, medication, and exercise schedules
-- **Track health patterns** that might only be visible over time
-- **Share the load** of responsible pet ownership
 
 ## Configuration
 
@@ -123,22 +122,24 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 
 ### Supabase Setup
 
-**Important**: This app requires Supabase for authentication and data storage. See `SUPABASE_SETUP.md` for complete setup instructions.
+Run `supabase-schema.sql` in the Supabase SQL Editor to create tables, RLS policies, triggers, and RPCs. Ensure Realtime is enabled for the `public` schema (Database → Replication → Realtime) if you plan to use live updates.
 
 ## Built With
 
 - **React 18** - Modern React with hooks
-- **Supabase** - Backend as a Service (auth, database, storage)
-- **Vite** - Fast build tool and dev server
-- **Tailwind CSS** - Utility-first CSS framework
-- **Lucide React** - Beautiful icons
+- **React Router 7** - File/component-based routing
+- **Supabase** - Auth, Postgres, RPC, RLS
+- **Vite** - Fast dev server and build tool
+- **Tailwind CSS** - Utility-first styling
+- **Framer Motion** - Smooth animations
+- **Zustand** - Lightweight state where needed
 
 ## Usage
 
 ### Setting Up Your Household
 
-1. **Sign up** with your phone number or email
-2. **Verify** with the code sent via SMS or email
+1. **Sign up** with your email
+2. **Verify** with the code sent to your email
 3. **Your household is created automatically**
 4. **Add your first dog** from the header dog selector
 
@@ -146,122 +147,136 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 
 #### Adding Dogs
 1. Click the **dog selector** in the header
-2. Select **"Add another dog"**
-3. Fill in your dog's information (name, breed, birth date, vet info, etc.)
+2. Select **"Add New Pet"**
+3. Fill in your dog's information (name, breed, avatar)
 4. **Switch between dogs** using the header dropdown
 
 #### Logging Activities
-1. Tap the **+ button** in the bottom right
-2. Select activity type (potty, meal, sleep, medicine, training, grooming, or note)
-3. Add details, mood, energy level, and notes
-4. Submit to log the activity for the currently selected dog
+1. Tap the **+ button** or use quick actions on the dashboard
+2. Select activity type (potty, meal, sleep, medicine, training, grooming, play)
+3. Add details and notes
+4. Save to log the activity for the current dog
 
 #### Family Collaboration
-1. Go to **Settings** tab - **"Manage Household"**
+1. Go to **Settings → Household**
 2. **Share your invite link** with family members
-3. Each person creates their own account via the invite link
+3. Each person signs in via email OTP
 4. **Everyone can track all dogs** with their own identity in the logs
 
 #### Viewing Data
-- Use the **Home** tab to see today's stats for the selected dog
-- Use the **Analytics** tab for trends and insights
-- Use the **History** tab to browse past activities
+- Use the **Home** tab for today's stats for the selected dog
+- Use **Analytics** for trends (MVP simplified)
 - **Switch dogs** anytime to see different data
 
 ### Managing Your Household
 
 #### Adding/Removing Members
-- **Household owners** can remove members from settings
+- **Household owners** can remove members and change roles
 - **Generate new invite codes** to refresh access
 - **View all members** with their roles and join dates
 
 #### Data Export
-- Export **all household data** as JSON from settings
-- Includes all dogs, activities, and member information
-- Perfect for vet visits or backing up your data
+- Export options planned for post-MVP
 
-## Deployment
+## Realtime Sync (MVP Path)
 
-### Vercel (Recommended)
+Current app uses optimistic updates after writes and periodic fetch. For true multi-user live sync:
+- Enable Realtime for `public` schema and add replicas for tables: `puppy_entries`, `puppies`, `household_members`
+- Subscribe in the client and merge changes into local state
 
-1. Connect your GitHub repository to Vercel
-2. Add environment variables in Vercel dashboard:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-3. Deploy automatically
+Example subscription (to be implemented):
+```js
+import { supabase } from './lib/supabase'
 
-### Netlify
-
-1. Connect your GitHub repository
-2. Set build command: `npm run build`
-3. Set output directory: `dist`
-4. Add environment variables in Netlify dashboard
-
-## Security Features
-
-- **Row Level Security (RLS)** - Users can only access their household data
-- **Email/Phone verification** - Prevents unauthorized access
-- **Secure invite codes** - Magic links expire and can be regenerated
-- **HTTPS everywhere** - All communication encrypted
+const channel = supabase
+  .channel('household-stream')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'puppy_entries', filter: `puppy_id=eq.${activeDogId}` }, payload => {
+    // merge payload.new/payload.old into activities state
+  })
+  .subscribe()
+```
 
 ## Project Structure
 
 ```
 src/
-├── components/           # React components
-│   ├── AuthWrapper.jsx   # Authentication wrapper
-│   ├── LoginScreen.jsx   # Phone/email login
-│   ├── LoadingScreen.jsx # Auth loading state
-│   ├── Header.jsx        # Header with dog selector
-│   ├── HomeView.jsx      # Multi-dog dashboard
-│   ├── HistoryView.jsx   # Activity history
-│   ├── SettingsView.jsx  # Household settings
-│   ├── DogSelector.jsx   # Dog switching component
-│   ├── DogForm.jsx       # Add/edit dog form
-│   ├── HouseholdInvite.jsx # Invite management
-│   ├── InviteHandler.jsx # Magic link handler
-│   ├── QuickAddForm.jsx  # Activity logging
-│   └── BottomNavigation.jsx
-├── hooks/               # Custom React hooks
-│   ├── useAuth.js       # Authentication management
-│   ├── useHouseholdData.js # Household & multi-dog data
-│   ├── useSupabaseData.js # Cloud data management
-│   └── useDarkMode.js   # Theme management
-├── lib/                 # Configuration
-│   └── supabase.js      # Supabase client setup
-├── utils/               # Utility functions
-│   └── helpers.js
-└── App.jsx              # Main app component
+├── App.jsx
+├── main.jsx
+├── contexts/
+│   ├── AuthContext.jsx
+│   ├── PetContext.jsx
+│   └── ThemeContext.jsx
+├── hooks/
+│   ├── useSupabaseAuth.js
+│   ├── useHousehold.js
+│   └── useActivities.js
+├── components/
+│   ├── auth/
+│   │   └── AuthWrapper.jsx
+│   ├── household/
+│   │   ├── HouseholdSetup.jsx
+│   │   └── InviteHandler.jsx
+│   ├── layout/
+│   │   ├── Header.jsx
+│   │   ├── BottomNav.jsx
+│   │   ├── FloatingActionButton.jsx
+│   │   └── Layout.jsx
+│   └── ui/
+│       ├── ErrorBoundary.jsx
+│       ├── LoadingScreen.jsx
+│       ├── Logo.jsx
+│       └── Icon.jsx
+├── pages/
+│   ├── dashboard/
+│   │   ├── Dashboard.jsx
+│   │   ├── ActivityFeed.jsx
+│   │   ├── QuickStats.jsx
+│   │   ├── InsightsBanner.jsx
+│   │   └── WeatherWidget.jsx
+│   ├── logging/
+│   │   └── ActivityLogging.jsx
+│   ├── profile/
+│   │   └── PetProfile.jsx
+│   ├── analytics/
+│   │   └── AnalyticsSimple.jsx
+│   ├── care/
+│   │   └── CareManagement.jsx
+│   └── settings/
+│       └── Settings.jsx
+├── stores/
+│   ├── activityStore.js
+│   └── petStore.js
+├── lib/
+│   ├── supabase.js
+│   └── dogBreeds.js
+└── styles/
+    └── globals.css
 ```
 
-## Migration from Single-Dog Version
+## Security Features
 
-If upgrading from a single-dog version:
+- **Row Level Security (RLS)** - Users can only access their household data
+- **Email verification** - Passwordless OTP sign-in
+- **Invite codes** - Owners can regenerate codes at any time
+- **RPC layer** - `get_household_members` avoids recursive RLS issues; `set_member_role` enforces owner-only role changes
 
-1. **Export your old data** before updating
-2. **Follow Supabase setup** instructions in `SUPABASE_SETUP.md`
-3. **Your first dog** will be created automatically from your old puppy data
-4. **Invite family members** using the new household system
-5. **Import historical data** manually or create a migration script
+## Testing & To-Dos (MVP)
 
-## What's New in Multi-Dog Edition
+### Testing Strategy
+- **Unit tests** (Vitest/Jest): hooks (`useSupabaseAuth`, `useHousehold`, `useActivities`) with mocked Supabase client
+- **Integration tests**: auth → household setup → add dog → add activity flows
+- **E2E tests** (Playwright/Cypress):
+  - Two users in the same household
+  - User A logs activity; User B sees update (with Realtime once implemented)
+  - Invite acceptance flow via `/join/:code`
 
-- **Household-centric data model** instead of individual users
-- **Magic link invites** for easy family onboarding
-- **Dog switching** in the header for multi-dog households
-- **Enhanced dog profiles** with medical information
-- **Real-time collaboration** with user attribution
-- **Improved settings** for household management
-- **Better mobile experience** with responsive design
-
-## Perfect For
-
-- **Multi-dog families** 
-- **Multi-generational households**
-- **Professional dog sitters**
-- **Veterinary record keeping**
-- **Behavioral tracking across multiple dogs**
-- **Anyone who believes in shared responsibility for pet care**
+### To-Dos Before MVP
+- [ ] Implement Supabase Realtime subscriptions for `puppy_entries`, `puppies`, and `household_members`
+- [ ] Add optimistic UI rollback on write failures
+- [ ] Write unit tests for core hooks
+- [ ] Add E2E happy paths for two-user household scenario
+- [ ] Add loading/empty states polish across pages
+- [ ] Document environment setup and troubleshooting (ports, HMR)
 
 ---
 

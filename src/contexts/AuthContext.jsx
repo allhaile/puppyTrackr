@@ -24,7 +24,6 @@ export const AuthProvider = ({ children }) => {
     
     // Auth methods
     signInWithEmail: auth.signInWithEmail,
-    signInWithPhone: auth.signInWithPhone,
     verifyOtp: auth.verifyOtp,
     signOut: auth.signOut,
     updateProfile: auth.updateProfile,
@@ -52,6 +51,8 @@ export const AuthProvider = ({ children }) => {
     updateHouseholdName: household.updateHouseholdName,
     updateMemberRole: household.updateMemberRole,
     leaveHousehold: household.leaveHousehold,
+    createHousehold: household.createHousehold,
+    deleteHousehold: household.deleteHousehold,
     
     // Legacy methods for backward compatibility
     addCaregiver: (caregiver) => {
@@ -63,7 +64,7 @@ export const AuthProvider = ({ children }) => {
       console.warn('updateCaregiver is deprecated')
     },
     login: (userData) => {
-      console.warn('login is deprecated, use signInWithEmail or signInWithPhone instead')
+      console.warn('login is deprecated, use signInWithEmail instead')
     },
     logout: auth.signOut,
     // Re-fetch household/memberships
