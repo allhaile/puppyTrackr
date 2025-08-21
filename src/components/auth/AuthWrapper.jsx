@@ -7,9 +7,10 @@ import { useNavigate } from 'react-router-dom'
 import Logo from '../ui/Logo'
 
 const AuthWrapper = ({ children }) => {
-  const { isAuthenticated, loading, signInWithEmail, verifyOtp, error, households } = useAuth()
+  const { isAuthenticated, loading, signInWithEmail, verifyOtp, error, households, profile } = useAuth()
   const navigate = useNavigate()
-  const [authStep, setAuthStep] = useState('method') // 'method', 'email', 'verify'
+  const [authStep, setAuthStep] = useState('landing') // 'landing', 'method', 'email', 'verify'
+  const [authMode, setAuthMode] = useState('signin') // 'signin' | 'signup'
   const [contactInfo, setContactInfo] = useState('')
   const [localError, setLocalError] = useState('')
   
@@ -22,6 +23,12 @@ const AuthWrapper = ({ children }) => {
   // After sign-in, if user has no memberships, route to setup. If we have a pending invite, go to it first.
   useEffect(() => {
     if (!loading && isAuthenticated) {
+      // If profile incomplete, go to onboarding capture
+      const missingProfile = !profile || !profile.username || !profile.display_name
+      if (missingProfile) {
+        navigate('/onboarding', { replace: true })
+        return
+      }
       const pendingCode = localStorage.getItem('pending_invite_code')
       if (pendingCode) {
         navigate(`/join/${pendingCode}`, { replace: true })
@@ -32,10 +39,10 @@ const AuthWrapper = ({ children }) => {
       const onInvite = path.startsWith('/join/')
       const onSetup = path.startsWith('/household/setup')
       if (!onInvite && !onSetup && (!households || households.length === 0)) {
-        navigate('/household/setup', { replace: true })
+        navigate('/household/setup?mode=create', { replace: true })
       }
     }
-  }, [loading, isAuthenticated, households, navigate])
+  }, [loading, isAuthenticated, households, navigate, profile])
 
   // Capture invite code while unauthenticated so we can restore after login
   useEffect(() => {
@@ -102,23 +109,23 @@ const AuthWrapper = ({ children }) => {
     }
     setContactInfo(currentValue)
     setLocalError('')
-    const result = await signInWithEmail(currentValue)
+    const result = await signInWithEmail(currentValue, { createUser: authMode === 'signup' })
     if (result.success) {
       setAuthStep('verify')
     } else {
       setLocalError(result.error || 'An error occurred')
     }
-  }, [signInWithEmail])
+  }, [signInWithEmail, authMode])
 
   const handleSendOTP = useCallback(async () => {
     setLocalError('')
-    const result = await signInWithEmail(contactInfo)
+    const result = await signInWithEmail(contactInfo, { createUser: authMode === 'signup' })
     if (result.success) {
       setAuthStep('verify')
     } else {
       setLocalError(result.error || 'An error occurred')
     }
-  }, [contactInfo, signInWithEmail])
+  }, [contactInfo, signInWithEmail, authMode])
 
   const handleVerifyOTP = useCallback(async () => {
     const currentOtp = otpRef.current.trim()
@@ -145,6 +152,44 @@ const AuthWrapper = ({ children }) => {
   if (isAuthenticated) {
     return children
   }
+
+  const Landing = () => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-6"
+    >
+      <div className="text-center space-y-3">
+        <h2 className="text-2xl font-bold">Welcome to PuppyTrackr</h2>
+        <p className="text-muted-foreground">Track, coordinate, and care for your pup — together.</p>
+      </div>
+
+      <div className="space-y-4">
+        <div className="glass-card p-4">
+          <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
+            <li>Log meals, walks, potty, meds, and play</li>
+            <li>Invite family and caregivers with one link</li>
+            <li>Insights to build healthy routines</li>
+          </ul>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => { setAuthMode('signin'); setAuthStep('email') }}
+            className="p-3 rounded-lg border border-border hover:bg-muted/50"
+          >
+            Sign In
+          </button>
+          <button
+            onClick={() => { setAuthMode('signup'); setAuthStep('email') }}
+            className="p-3 rounded-lg btn-primary"
+          >
+            Create Account
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground text-center">We'll send a verification code to your email.</p>
+      </div>
+    </motion.div>
+  )
 
   const AuthMethodSelection = () => (
     <motion.div
@@ -229,7 +274,7 @@ const AuthWrapper = ({ children }) => {
           </button>
 
           <button
-            onClick={() => setAuthStep('method')}
+            onClick={() => setAuthStep('landing')}
             className="w-full btn-ghost"
           >
             Back
@@ -250,11 +295,7 @@ const AuthWrapper = ({ children }) => {
         <p className="text-muted-foreground">
           We sent a code to {contactInfo}
         </p>
-        {process.env.NODE_ENV === 'development' && (
-          <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
-            Development: If email is empty, try codes: 123456 or 000000
-          </p>
-        )}
+        {/* OTP is strictly via email; no dev bypass codes */}
       </div>
 
       <div className="space-y-4">
@@ -304,14 +345,14 @@ const AuthWrapper = ({ children }) => {
 
   const getCurrentForm = () => {
     switch (authStep) {
-      case 'method':
-        return <AuthMethodSelection />
+      case 'landing':
+        return <Landing />
       case 'email':
         return <ContactForm />
       case 'verify':
         return <VerificationForm />
       default:
-        return <AuthMethodSelection />
+        return <Landing />
     }
   }
 

@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useMemo, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
@@ -7,9 +7,15 @@ import Icon from '../ui/Icon'
 
 const HouseholdSetup = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user, profile, household, households, updateHouseholdName } = useAuth()
 
   const [mode, setMode] = useState('create') // 'create' | 'join'
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const urlMode = params.get('mode')
+    if (urlMode === 'join' || urlMode === 'create') setMode(urlMode)
+  }, [location.search])
   const [householdName, setHouseholdName] = useState('')
   const [inviteCode, setInviteCode] = useState('')
   const [loading, setLoading] = useState(false)

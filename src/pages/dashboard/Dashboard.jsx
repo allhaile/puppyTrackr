@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { format, formatDistanceToNow } from 'date-fns'
 import { usePets } from '../../contexts/PetContext'
@@ -10,6 +11,7 @@ import InsightsBanner from './InsightsBanner'
 import WeatherWidget from './WeatherWidget'
 
 const Dashboard = () => {
+  const navigate = useNavigate()
   const { activePet, todayActivities, stats, getLastActivityTime } = usePets()
   const { user, profile } = useAuth()
   const [greeting, setGreeting] = useState('')
@@ -37,7 +39,7 @@ const Dashboard = () => {
             Start by adding your first pet to begin tracking their daily activities and health.
           </p>
           <button
-            onClick={() => window.location.href = '/profile/new'}
+            onClick={() => navigate('/profile/new')}
             className="btn-primary"
           >
             Add Your First Pet
@@ -117,7 +119,7 @@ const Dashboard = () => {
             key={action.type}
             whileTap={{ scale: 0.95 }}
             className="glass-card p-4 hover:scale-105 transition-transform"
-            onClick={() => window.location.href = `/log?type=${action.type}`}
+            onClick={() => navigate(`/log?type=${action.type}`)}
           >
             <div className={`w-12 h-12 mx-auto mb-2 rounded-xl bg-gradient-to-br ${action.color} flex items-center justify-center`}>
               <Icon name={action.icon} className="text-white" size={24} />
